@@ -2,6 +2,7 @@ import { SiteHeader } from '@/components/landing/site-header';
 import { HeroFlow } from '@/components/landing/hero-flow';
 import { CabinetCatalog } from '@/components/landing/cabinet-catalog';
 import { SiteFooter } from '@/components/landing/site-footer';
+import { CartDrawer } from '@/components/cart/cart-drawer';
 
 export default function HomePage() {
   return (
@@ -12,6 +13,7 @@ export default function HomePage() {
         <CabinetCatalog />
       </main>
       <SiteFooter />
+      <CartDrawer />
     </div>
   );
 }

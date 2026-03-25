@@ -11,6 +11,7 @@ import ConfigHeader from '@/components/configurator/config-header';
 import PanelEditor from '@/components/configurator/panel-editor';
 import DetailsPanel from '@/components/configurator/details-panel';
 import Toast from '@/components/configurator/toast';
+import { CartDrawer } from '@/components/cart/cart-drawer';
 
 const Cabinet3DScene = dynamic(() => import('@/components/configurator/cabinet-3d-scene'), { ssr: false });
 
@@ -51,6 +52,7 @@ export default function ConfigurePage() {
       </div>
 
       <Toast />
+      <CartDrawer />
     </div>
   );
 }

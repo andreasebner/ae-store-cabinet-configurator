@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useConfiguratorStore } from '@/store/configurator-store';
+import { useCartStore } from '@/store/cart-store';
 import { CABINETS, formatDimensions, calcPrice } from '@/lib/constants';
 import type { CabinetKey, ToolType, Side } from '@/lib/types';
 import { SIDES } from '@/lib/constants';
@@ -25,10 +26,18 @@ export default function ConfigHeader() {
   const {
     currentCabinet, setCabinet, currentSide, setSide, sideElements,
     activeTool, setTool, undoStack, redoStack, undo, redo,
-    clearCurrentSide, zoomLevel, setZoom, addToCart, cartItems,
+    clearCurrentSide, zoomLevel, setZoom, showToast,
   } = useConfiguratorStore();
-
+  const { addItem, toggleCart, itemCount } = useCartStore();
+  const cartItems = itemCount();
   const price = calcPrice(currentCabinet, sideElements);
+
+  function handleAddToCart() {
+    addItem(currentCabinet, sideElements, price);
+    let n = 0;
+    SIDES.forEach(s => { n += sideElements[s].length; });
+    showToast(`Cabinet added to cart (${n} cutout${n !== 1 ? 's' : ''})`, '🛒');
+  }
 
   return (
     <header className="h-12 bg-white border-b border-slate-200 flex items-center px-3 gap-2 shrink-0">
@@ -47,7 +56,7 @@ export default function ConfigHeader() {
         className="h-7 text-xs border border-slate-200 rounded px-2 bg-white focus:ring-1 focus:ring-brand-500 outline-none"
       >
         {Object.entries(CABINETS).map(([key, spec]) => (
-          <option key={key} value={key}>{spec.label} ({spec.w}×{spec.h})</option>
+          <option key={key} value={key}>{spec.name} ({spec.w}×{spec.h})</option>
         ))}
       </select>
 
@@ -146,13 +155,23 @@ export default function ConfigHeader() {
       </div>
 
       <button
-        onClick={addToCart}
+        onClick={handleAddToCart}
         className="h-8 px-3 flex items-center gap-1.5 text-xs font-medium bg-brand-600 text-white rounded hover:bg-brand-700 transition"
       >
         <ShoppingCart className="h-3.5 w-3.5" />
         Add to Cart
+      </button>
+
+      <button
+        onClick={toggleCart}
+        className="relative h-8 w-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded transition"
+        title="Shopping Cart"
+      >
+        <ShoppingCart className="h-4 w-4" />
         {cartItems > 0 && (
-          <span className="ml-0.5 bg-white/20 text-[10px] px-1.5 py-0.5 rounded-full">{cartItems}</span>
+          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 rounded-full bg-brand-600 text-[10px] font-bold text-white px-1">
+            {cartItems}
+          </span>
         )}
       </button>
     </header>
