@@ -1,0 +1,25 @@
+{
+  "name": "cabinetpro-sveltekit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@medusajs/js-sdk": "^2.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^3.2.0",
+    "@sveltejs/kit": "^2.5.0",
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "svelte": "^4.2.0",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.0",
+    "vite": "^5.3.0"
+  },
+  "type": "module"
+}

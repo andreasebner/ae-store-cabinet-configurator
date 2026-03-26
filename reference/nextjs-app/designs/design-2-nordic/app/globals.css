@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Nordic warm palette */
+  --nordic-cream: #FAF8F5;
+  --nordic-warm-white: #FFFFFF;
+  --nordic-linen: #F5F2EE;
+  --nordic-sand: #EDE8E1;
+  --nordic-clay: #D9D0C7;
+
+  --terracotta: #C4644A;
+  --terracotta-dark: #A8523B;
+  --terracotta-light: #F3E0DA;
+  --terracotta-muted: #E8A998;
+
+  --sage: #7B9E87;
+  --sage-dark: #5F8369;
+  --sage-light: #E3EDE6;
+  --sage-muted: #A3C2AE;
+
+  --warm-gray-900: #3D3532;
+  --warm-gray-700: #5C5550;
+  --warm-gray-500: #8A817A;
+  --warm-gray-400: #A69E97;
+  --warm-gray-300: #C4BCB5;
+  --warm-gray-200: #DDD7D1;
+  --warm-gray-100: #EDE8E3;
+  --warm-gray-50: #F5F2EE;
+
+  --warm-red: #C96156;
+
+  --header-height: 64px;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--nordic-cream);
+  color: var(--warm-gray-900);
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Warm scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--warm-gray-300);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--warm-gray-400);
+}
+
+/* ============================================
+   3D Cabinet Faces — Warm Nordic tones
+   ============================================ */
+.face {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  backface-visibility: visible;
+}
+.face span {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  background: rgba(250, 248, 245, 0.92);
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  color: var(--warm-gray-700);
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(61, 53, 50, 0.06);
+}
+.face:hover span { opacity: 1; }
+.face.selected {
+  border-color: var(--terracotta) !important;
+  box-shadow: inset 0 0 0 2.5px var(--terracotta), 0 0 24px rgba(196, 100, 74, 0.15);
+}
+.face.selected span {
+  opacity: 1;
+  color: var(--terracotta);
+  background: rgba(250, 248, 245, 0.95);
+}
+
+/* Warm beige/gray gradients for each face */
+.face-front {
+  width: 260px; height: 340px;
+  background: linear-gradient(180deg, #DDD7D1 0%, #C8BFB6 100%);
+  border: 1.5px solid rgba(61, 53, 50, 0.1);
+  transform: translateZ(55px);
+  border-radius: 4px;
+}
+.face-back {
+  width: 260px; height: 340px;
+  background: linear-gradient(180deg, #CFC7BE 0%, #B5ACA3 100%);
+  border: 1.5px solid rgba(61, 53, 50, 0.08);
+  transform: rotateY(180deg) translateZ(55px);
+  border-radius: 4px;
+}
+.face-left {
+  width: 110px; height: 340px;
+  background: linear-gradient(180deg, #D4CBC2 0%, #BAB0A6 100%);
+  border: 1.5px solid rgba(61, 53, 50, 0.08);
+  transform: rotateY(-90deg) translateZ(0px);
+  left: -55px;
+}
+.face-right {
+  width: 110px; height: 340px;
+  background: linear-gradient(180deg, #D4CBC2 0%, #BAB0A6 100%);
+  border: 1.5px solid rgba(61, 53, 50, 0.08);
+  transform: rotateY(90deg) translateZ(205px);
+}
+.face-top {
+  width: 260px; height: 110px;
+  background: linear-gradient(180deg, #E8E1DA 0%, #D6CEC5 100%);
+  border: 1.5px solid rgba(61, 53, 50, 0.06);
+  transform: rotateX(90deg) translateZ(0px);
+  top: -55px;
+}
+.face-bottom {
+  width: 260px; height: 110px;
+  background: linear-gradient(180deg, #B5ACA3 0%, #A39A91 100%);
+  border: 1.5px solid rgba(61, 53, 50, 0.08);
+  transform: rotateX(-90deg) translateZ(285px);
+}
+
+/* ============================================
+   Panel Element Styles — Natural warm colors
+   ============================================ */
+.panel-el {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: move;
+  transition: box-shadow 0.2s ease;
+}
+.panel-el:hover { z-index: 10; }
+.panel-el.selected {
+  z-index: 20;
+  box-shadow: 0 0 0 2.5px var(--terracotta), 0 0 0 5px rgba(196, 100, 74, 0.12);
+}
+
+/* Terracotta circles */
+.el-hole {
+  border-radius: 50%;
+  border: 2px solid var(--terracotta);
+  background: rgba(196, 100, 74, 0.06);
+}
+
+/* Sage rectangles */
+.el-rect {
+  border: 2px solid var(--sage);
+  background: rgba(123, 158, 135, 0.06);
+  border-radius: 4px;
+}
+
+/* Warm red openings */
+.el-opening {
+  border: 2px dashed var(--warm-red);
+  background: rgba(201, 97, 86, 0.04);
+  border-radius: 4px;
+}
+
+.el-label {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-family: 'Manrope', sans-serif;
+  background: var(--nordic-warm-white);
+  padding: 2px 7px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(61, 53, 50, 0.06);
+  pointer-events: none;
+}
+.el-hole .el-label { color: var(--terracotta); }
+.el-rect .el-label { color: var(--sage-dark); }
+.el-opening .el-label { color: var(--warm-red); }
+
+/* Soft rounded handles */
+.handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--nordic-warm-white);
+  border: 2px solid var(--terracotta);
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(196, 100, 74, 0.15);
+}
+.handle-nw { top: -4px; left: -4px; cursor: nw-resize; }
+.handle-ne { top: -4px; right: -4px; cursor: ne-resize; }
+.handle-sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+.handle-se { bottom: -4px; right: -4px; cursor: se-resize; }
+
+/* Guide lines — warm terracotta tint */
+.guide-line { position: absolute; z-index: 0; pointer-events: none; }
+.guide-line-v { width: 1px; top: 0; bottom: 0; background: rgba(196, 100, 74, 0.2); }
+.guide-line-h { height: 1px; left: 0; right: 0; background: rgba(196, 100, 74, 0.2); }
+
+/* ============================================
+   Warm gradient utilities
+   ============================================ */
+.warm-gradient-bg {
+  background: linear-gradient(135deg, #FAF8F5 0%, #F5F0EA 50%, #FAF8F5 100%);
+}
+
+.warm-card {
+  background: var(--nordic-warm-white);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 12px rgba(61, 53, 50, 0.04), 0 0 0 1px rgba(61, 53, 50, 0.03);
+}
+
+.warm-card-sm {
+  background: var(--nordic-warm-white);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 8px rgba(61, 53, 50, 0.04), 0 0 0 1px rgba(61, 53, 50, 0.03);
+}

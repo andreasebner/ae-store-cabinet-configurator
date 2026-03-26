@@ -1,0 +1,21 @@
+/* Global overrides for the Vuetify Material Design 3 look */
+html, body { font-family: 'Roboto', sans-serif; }
+
+.panel-el { transition: box-shadow 0.15s ease, filter 0.15s ease; }
+.panel-el:hover { filter: brightness(1.08); }
+
+/* 3D scene */
+.preserve-3d { transform-style: preserve-3d; }
+.face {
+  position: absolute;
+  backface-visibility: hidden;
+  border-radius: 2px;
+}
+
+/* Grid dot pattern */
+.grid-dots {
+  background-image: radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1px);
+}
+
+/* Smooth transitions on side switching */
+.side-transition { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }

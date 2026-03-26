@@ -1,0 +1,290 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Industrial Forge — Dark Theme */
+  --forge-base: #1A1D23;
+  --forge-surface: #22262E;
+  --forge-surface-raised: #2A2F38;
+  --forge-surface-overlay: #323842;
+  --forge-border: #3A3F4A;
+  --forge-border-light: #2E333C;
+  --forge-orange: #FF6B2C;
+  --forge-orange-dim: #CC5523;
+  --forge-orange-glow: rgba(255, 107, 44, 0.15);
+  --forge-amber: #F5A623;
+  --forge-red: #E74C3C;
+  --forge-green: #27AE60;
+  --forge-blue: #3B82F6;
+  --forge-text: #E8EAED;
+  --forge-text-secondary: #9DA3AE;
+  --forge-text-tertiary: #6B7280;
+  --forge-text-muted: #4B5563;
+  --forge-steel: #8B95A5;
+  --forge-steel-light: #A8B0BC;
+  --forge-steel-dark: #5C6370;
+  --forge-canvas-bg: #12141A;
+  --header-height: 52px;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --transition: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-ui);
+  background: var(--forge-base);
+  color: var(--forge-text);
+  height: 100vh;
+  overflow: hidden;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Noise grain overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ── Warning stripe accent utility ── */
+.warning-stripe {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--forge-orange) 0px,
+    var(--forge-orange) 4px,
+    var(--forge-base) 4px,
+    var(--forge-base) 8px
+  );
+}
+
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--forge-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--forge-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--forge-steel-dark);
+}
+
+/* ── 3D Cabinet faces ── */
+.face {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backface-visibility: visible;
+}
+.face span {
+  opacity: 0;
+  transition: opacity 0.2s;
+  background: rgba(26, 29, 35, 0.9);
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-size: 10px;
+  pointer-events: none;
+  color: var(--forge-text-secondary);
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid var(--forge-border);
+}
+.face:hover span { opacity: 1; }
+.face.selected {
+  border-color: var(--forge-orange) !important;
+  box-shadow: inset 0 0 0 2px var(--forge-orange), 0 0 24px rgba(255, 107, 44, 0.2);
+}
+.face.selected span {
+  opacity: 1;
+  color: var(--forge-orange);
+  border-color: var(--forge-orange);
+}
+
+.face-front {
+  width: 260px; height: 340px;
+  background: linear-gradient(180deg, #3A3F4A 0%, #2A2F38 100%);
+  border: 1.5px solid rgba(255,255,255,0.06);
+  transform: translateZ(55px);
+  border-radius: 1px;
+}
+.face-back {
+  width: 260px; height: 340px;
+  background: linear-gradient(180deg, #323842 0%, #252930 100%);
+  border: 1.5px solid rgba(255,255,255,0.04);
+  transform: rotateY(180deg) translateZ(55px);
+  border-radius: 1px;
+}
+.face-left {
+  width: 110px; height: 340px;
+  background: linear-gradient(180deg, #353A44 0%, #282D35 100%);
+  border: 1.5px solid rgba(255,255,255,0.04);
+  transform: rotateY(-90deg) translateZ(0px);
+  left: -55px;
+}
+.face-right {
+  width: 110px; height: 340px;
+  background: linear-gradient(180deg, #353A44 0%, #282D35 100%);
+  border: 1.5px solid rgba(255,255,255,0.04);
+  transform: rotateY(90deg) translateZ(205px);
+}
+.face-top {
+  width: 260px; height: 110px;
+  background: linear-gradient(180deg, #424852 0%, #383E48 100%);
+  border: 1.5px solid rgba(255,255,255,0.06);
+  transform: rotateX(90deg) translateZ(0px);
+  top: -55px;
+}
+.face-bottom {
+  width: 260px; height: 110px;
+  background: linear-gradient(180deg, #252930 0%, #1E2128 100%);
+  border: 1.5px solid rgba(255,255,255,0.03);
+  transform: rotateX(-90deg) translateZ(285px);
+}
+
+/* ── Panel element styles ── */
+.panel-el {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: move;
+  transition: box-shadow 0.15s;
+}
+.panel-el:hover { z-index: 10; }
+.panel-el.selected {
+  z-index: 20;
+  box-shadow: 0 0 0 2px var(--forge-orange), 0 0 0 4px rgba(255, 107, 44, 0.15);
+}
+
+.el-hole {
+  border-radius: 50%;
+  border: 2px solid var(--forge-orange);
+  background: rgba(255, 107, 44, 0.08);
+}
+.el-rect {
+  border: 2px solid var(--forge-amber);
+  background: rgba(245, 166, 35, 0.08);
+  border-radius: 1px;
+}
+.el-opening {
+  border: 2px dashed var(--forge-red);
+  background: rgba(231, 76, 60, 0.06);
+  border-radius: 1px;
+}
+
+.el-label {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  background: var(--forge-surface);
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--forge-border);
+  pointer-events: none;
+  letter-spacing: 0.3px;
+}
+.el-hole .el-label { color: var(--forge-orange); }
+.el-rect .el-label { color: var(--forge-amber); }
+.el-opening .el-label { color: var(--forge-red); }
+
+/* ── Resize handles ── */
+.handle {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: var(--forge-surface);
+  border: 1.5px solid var(--forge-orange);
+  border-radius: 1px;
+}
+.handle-nw { top: -3px; left: -3px; cursor: nw-resize; }
+.handle-ne { top: -3px; right: -3px; cursor: ne-resize; }
+.handle-sw { bottom: -3px; left: -3px; cursor: sw-resize; }
+.handle-se { bottom: -3px; right: -3px; cursor: se-resize; }
+
+/* ── Guide lines ── */
+.guide-line {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+.guide-line-v {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 107, 44, 0.3);
+}
+.guide-line-h {
+  height: 1px;
+  left: 0;
+  right: 0;
+  background: rgba(255, 107, 44, 0.3);
+}
+
+/* ── Blueprint dotted grid ── */
+.blueprint-grid {
+  background-image: radial-gradient(circle, rgba(255, 107, 44, 0.12) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ── Industrial input styling ── */
+.forge-input {
+  background: var(--forge-base);
+  border: 1px solid var(--forge-border);
+  color: var(--forge-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 2px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.forge-input:focus {
+  border-color: var(--forge-orange);
+  box-shadow: 0 0 0 1px rgba(255, 107, 44, 0.2);
+}
+
+/* ── Select dropdown dark styling ── */
+.forge-select {
+  appearance: none;
+  background: var(--forge-surface);
+  border: 1px solid var(--forge-border);
+  color: var(--forge-text);
+  font-family: var(--font-ui);
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.forge-select:focus {
+  border-color: var(--forge-orange);
+}

@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #__next { height: 100%; margin: 0; }
+
+/* 3D preview */
+.preserve-3d { transform-style: preserve-3d; }
+
+/* Grid dots */
+.grid-dots {
+  background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px);
+  background-size: 3.25px 3.25px;
+}
+
+/* Smooth side transition */
+.side-transition { transition: transform 0.5s cubic-bezier(.4,0,.2,1); }
+
+/* Panel element */
+.panel-el {
+  @apply absolute border-2 border-primary/40 bg-primary/5 cursor-pointer transition-shadow;
+}
+.panel-el:hover { @apply shadow-md; }
+.panel-el.selected { @apply border-error ring-2 ring-error/30; }
+
+/* Keyboard shortcut kbd */
+kbd {
+  @apply bg-base-300 rounded px-1 py-0.5 text-xs font-mono;
+}
