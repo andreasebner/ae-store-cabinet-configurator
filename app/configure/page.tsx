@@ -219,7 +219,7 @@ export default function ConfigurePage() {
         {/* Middle: 2D Editor */}
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Toolbar — compact */}
-          <div className="relative z-30 flex items-center gap-0.5 px-4 py-1.5 border-b border-slate-200 bg-white shrink-0 overflow-x-auto">
+          <div className="relative z-30 flex items-center gap-0.5 px-4 py-1.5 border-b border-slate-200 bg-white shrink-0">
             {/* File menu */}
             <div className="relative">
               <button
