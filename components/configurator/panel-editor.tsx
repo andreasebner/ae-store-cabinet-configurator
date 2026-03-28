@@ -607,11 +607,20 @@ export default function PanelEditor() {
 
   const cursorStyle = constraintPlacement ? 'crosshair' : activeTool === 'move' ? 'default' : activeTool === 'ruler' ? 'crosshair' : 'crosshair';
 
-  // Mousewheel zoom handler (Ctrl+Wheel or pinch-to-zoom)
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = -e.deltaY * 0.002;
-    setZoom(Math.round((zoomLevel + delta) * 100) / 100);
+  // Ref for the outer scrollable wrapper — needed for native wheel listener
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Native wheel listener with { passive: false } so preventDefault actually blocks browser zoom
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.002;
+      setZoom(Math.round((zoomLevel + delta) * 100) / 100);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
   }, [zoomLevel, setZoom]);
 
   // Scale bar: pick a nice round mm value that fits ~60-100px at current zoom
@@ -626,20 +635,15 @@ export default function PanelEditor() {
   const scaleBarPx = scaleBarMM * zoomLevel;
 
   return (
-    <div className="flex-1 overflow-auto bg-slate-50 flex items-center justify-center p-6 relative" onWheel={handleWheel}>
-      {/* Scale indicator — upper right */}
-      <div className="absolute top-2 right-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm border border-slate-200 rounded px-2 py-1 pointer-events-none z-10">
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[9px] text-slate-400 font-medium">{Math.round(zoomLevel * 100)}%</span>
-          <div className="flex items-center gap-1">
-            <div className="relative" style={{ width: scaleBarPx, height: 6 }}>
-              <div className="absolute inset-x-0 top-1/2 h-px bg-slate-500" />
-              <div className="absolute left-0 top-0 bottom-0 w-px bg-slate-500" />
-              <div className="absolute right-0 top-0 bottom-0 w-px bg-slate-500" />
-            </div>
-            <span className="text-[9px] text-slate-500 font-mono">{scaleBarMM}mm</span>
-          </div>
+    <div ref={wrapperRef} className="flex-1 overflow-auto bg-slate-50 flex items-center justify-center p-6 relative">
+      {/* Scale indicator — bottom right */}
+      <div className="absolute bottom-2 right-3 flex items-center gap-1 pointer-events-none z-10">
+        <div className="relative" style={{ width: scaleBarPx, height: 6 }}>
+          <div className="absolute inset-x-0 top-1/2 h-px bg-slate-400" />
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-slate-400" />
+          <div className="absolute right-0 top-0 bottom-0 w-px bg-slate-400" />
         </div>
+        <span className="text-[9px] text-slate-400 font-mono">{scaleBarMM}mm</span>
       </div>
 
       <div
