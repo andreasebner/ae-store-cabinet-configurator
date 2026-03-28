@@ -1,5 +1,5 @@
 export type Side = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
-export type ElementType = 'hole' | 'rect' | 'opening';
+export type ElementType = 'hole' | 'rect' | 'opening' | 'custom';
 export type AnchorPoint = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
 export type ToolType = 'move' | 'ruler' | ElementType;
 export type CabinetKey = 'compact' | 'standard' | 'large' | 'industrial';
@@ -36,6 +36,10 @@ export interface PanelElement {
   diameter?: number;
   anchor?: AnchorPoint;
   radius?: number;
+  /** SVG path data for custom shapes (from DXF import) */
+  pathData?: string;
+  /** Original viewBox of the custom shape [minX, minY, width, height] */
+  pathViewBox?: [number, number, number, number];
 }
 
 export type SideElements = Record<Side, PanelElement[]>;

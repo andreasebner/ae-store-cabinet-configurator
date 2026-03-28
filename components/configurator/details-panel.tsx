@@ -4,7 +4,7 @@ import { useConfiguratorStore } from '@/store/configurator-store';
 import { ELEMENT_PRICES, getPanelDimensions } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import type { AnchorPoint, BorderRef } from '@/lib/types';
-import { CircleDot, Square, RectangleHorizontal, Trash2, Mouse, Grid3X3, Link } from 'lucide-react';
+import { CircleDot, Square, RectangleHorizontal, Trash2, Mouse, Grid3X3, Link, Shapes } from 'lucide-react';
 
 const ANCHOR_OPTIONS: { key: AnchorPoint; label: string; pos: string }[] = [
   { key: 'top-left', label: 'TL', pos: 'top-0 left-0' },
@@ -52,6 +52,7 @@ export default function DetailsPanel() {
       case 'hole': return <CircleDot className={cn(size, 'text-amber-500')} />;
       case 'rect': return <Square className={cn(size, 'text-sky-500')} />;
       case 'opening': return <RectangleHorizontal className={cn(size, 'text-emerald-500')} />;
+      case 'custom': return <Shapes className={cn(size, 'text-violet-500')} />;
       default: return null;
     }
   };
@@ -61,6 +62,7 @@ export default function DetailsPanel() {
       case 'hole': return 'bg-amber-50 border-amber-200';
       case 'rect': return 'bg-sky-50 border-sky-200';
       case 'opening': return 'bg-emerald-50 border-emerald-200';
+      case 'custom': return 'bg-violet-50 border-violet-200';
       default: return '';
     }
   };

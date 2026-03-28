@@ -57,6 +57,7 @@ interface ConfiguratorStore {
   toggleSelectElement: (id: number) => void;
   setSelectedElIds: (ids: Set<number>) => void;
   addElement: (type: ElementType, x: number, y: number, cw: number, ch: number) => void;
+  addCustomElement: (pathData: string, pathViewBox: [number, number, number, number], w: number, h: number) => void;
   moveElement: (id: number, x: number, y: number, exact?: boolean) => void;
   moveSelectedElements: (dx: number, dy: number, pw: number, ph: number) => void;
   resizeElement: (id: number, w: number, h: number) => void;
@@ -141,6 +142,25 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       id: state.nextId, type, x, y, w: d.w, h: d.h,
       ...(type === 'hole' ? { diameter: d.diameter } : {}),
       ...(type === 'rect' ? { anchor: 'center' as const, radius: 3 } : {}),
+    };
+    const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
+    const newElements = { ...state.sideElements };
+    newElements[state.currentSide] = [...newElements[state.currentSide], newEl];
+    set({
+      sideElements: newElements, selectedElId: state.nextId,
+      selectedElIds: new Set([state.nextId]), selectedAlignId: null,
+      nextId: state.nextId + 1, undoStack, redoStack: [],
+      price: calcPrice(state.currentCabinet, newElements),
+    });
+  },
+
+  addCustomElement: (pathData, pathViewBox, w, h) => {
+    const state = get();
+    const x = snap(10);
+    const y = snap(10);
+    const newEl: PanelElement = {
+      id: state.nextId, type: 'custom', x, y, w, h,
+      pathData, pathViewBox,
     };
     const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
     const newElements = { ...state.sideElements };

@@ -35,6 +35,7 @@ export const ELEMENT_PRICES: Record<string, number> = {
   hole: 12.50,
   rect: 18.00,
   opening: 25.00,
+  custom: 35.00,
 };
 
 export const ELEMENT_DEFAULTS: Record<string, { w: number; h: number; diameter?: number }> = {

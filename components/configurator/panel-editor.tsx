@@ -377,6 +377,7 @@ export default function PanelEditor() {
       case 'hole': return 'bg-amber-400/80 rounded-full border-2 border-amber-600 shadow-inner';
       case 'rect': return 'bg-sky-400/60 border-2 border-sky-600 shadow-sm ';
       case 'opening': return 'bg-emerald-400/60 border-2 border-emerald-600 rounded-sm shadow-sm';
+      case 'custom': return 'border-2 border-violet-500 shadow-sm';
       default: return '';
     }
   };
@@ -649,8 +650,16 @@ export default function PanelEditor() {
             }}
             onMouseDown={(e) => handleElDown(e, el.id)}
           >
-            {/* Anchor / Centerpoint indicator */}
-            {el.type === 'rect' && el.anchor && el.anchor !== 'center' ? (
+            {/* Custom shape SVG */}
+            {el.type === 'custom' && el.pathData && el.pathViewBox ? (
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox={`${el.pathViewBox[0]} ${el.pathViewBox[1]} ${el.pathViewBox[2]} ${el.pathViewBox[3]}`}
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <path d={el.pathData} fill="rgba(139, 92, 246, 0.4)" stroke="rgb(139, 92, 246)" strokeWidth={el.pathViewBox[2] * 0.015} />
+              </svg>
+            ) : el.type === 'rect' && el.anchor && el.anchor !== 'center' ? (
               <div className="absolute inset-0 pointer-events-none">
                 <div className={cn(
                   'absolute w-2 h-2 rounded-full bg-white border-2 border-sky-700',

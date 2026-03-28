@@ -10,6 +10,7 @@ import type { CabinetKey, ToolType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { exportProjectJSON, parseProjectFile, saveRecent, getRecentProjects, type ProjectFile } from '@/lib/project';
+import { parseDxfToSvg } from '@/lib/dxf-to-svg';
 import ConfigHeader from '@/components/configurator/config-header';
 import PanelEditor from '@/components/configurator/panel-editor';
 import DetailsPanel from '@/components/configurator/details-panel';
@@ -20,7 +21,7 @@ import {
   Trash2, ShoppingCart,
   ChevronDown, CircleDot, Grid3X3,
   FolderOpen, Download, FilePlus, Clock,
-  Ruler, Link,
+  Ruler, Link, Upload,
 } from 'lucide-react';
 
 const Cabinet3DScene = dynamic(() => import('@/components/configurator/cabinet-3d-scene'), { ssr: false });
@@ -46,6 +47,7 @@ export default function ConfigurePage() {
   const clearCurrentSide = useConfiguratorStore(s => s.clearCurrentSide);
   const deleteSelected = useConfiguratorStore(s => s.deleteSelected);
   const addAlignment = useConfiguratorStore(s => s.addAlignment);
+  const addCustomElement = useConfiguratorStore(s => s.addCustomElement);
   const startConstraintPlacement = useConfiguratorStore(s => s.startConstraintPlacement);
   const cancelConstraintPlacement = useConfiguratorStore(s => s.cancelConstraintPlacement);
   const constraintPlacement = useConfiguratorStore(s => s.constraintPlacement);
@@ -63,6 +65,7 @@ export default function ConfigurePage() {
   const [constraintMenuOpen, setConstraintMenuOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<ProjectFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dxfInputRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcuts();
 
@@ -138,6 +141,34 @@ export default function ConfigurePage() {
     setFileMenuOpen(false);
   }
 
+  function handleImportDxf() {
+    dxfInputRef.current?.click();
+    setFileMenuOpen(false);
+  }
+
+  function handleDxfSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const result = parseDxfToSvg(text);
+        // Scale so the shape fits within a reasonable size (max 120mm)
+        const maxDim = Math.max(result.widthMM, result.heightMM);
+        const scale = maxDim > 120 ? 120 / maxDim : maxDim < 10 ? 30 / maxDim : 1;
+        const w = Math.round(result.widthMM * scale);
+        const h = Math.round(result.heightMM * scale);
+        addCustomElement(result.pathData, result.viewBox, w, h);
+        showToast(`Imported DXF shape (${Math.round(result.widthMM)}×${Math.round(result.heightMM)}mm)`, '📐');
+      } catch (err: any) {
+        showToast(err.message || 'Failed to parse DXF file', '❌');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   function closeMenus() {
     setFileMenuOpen(false);
     setAlignMenuOpen(false);
@@ -186,9 +217,9 @@ export default function ConfigurePage() {
         </div>
 
         {/* Middle: 2D Editor */}
-        <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Toolbar — compact */}
-          <div className="flex items-center gap-0.5 px-4 py-1.5 border-b border-slate-200 bg-white shrink-0 overflow-x-auto">
+          <div className="relative z-30 flex items-center gap-0.5 px-4 py-1.5 border-b border-slate-200 bg-white shrink-0 overflow-x-auto">
             {/* File menu */}
             <div className="relative">
               <button
@@ -214,6 +245,10 @@ export default function ConfigurePage() {
                   </button>
                   <button onClick={handleExportProject} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
                     <Download className="h-3.5 w-3.5" /> Export Project
+                  </button>
+                  <div className="h-px bg-slate-100 my-1" />
+                  <button onClick={handleImportDxf} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
+                    <Upload className="h-3.5 w-3.5" /> Import Custom Shape (.dxf)
                   </button>
                   {recentProjects.length > 0 && (
                     <>
@@ -365,7 +400,7 @@ export default function ConfigurePage() {
           </div>
 
           {/* Panel editor */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <PanelEditor />
           </div>
         </div>
@@ -395,6 +430,7 @@ export default function ConfigurePage() {
       </div>
 
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileSelected} />
+      <input ref={dxfInputRef} type="file" accept=".dxf" className="hidden" onChange={handleDxfSelected} />
       {(fileMenuOpen || alignMenuOpen || constraintMenuOpen) && (
         <div className="fixed inset-0 z-10" onClick={closeMenus} />
       )}
