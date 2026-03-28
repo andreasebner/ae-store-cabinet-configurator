@@ -1,4 +1,4 @@
-// File: /home/developer/projects/figma-copilot/control_cabinet_order_site/nextjs-app/designs/design-3-electric/app/layout.tsx
+// File: /home/developer/projects/ae-store-cabinet-configurator/reference/design-variants/design-3-electric/app/layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
