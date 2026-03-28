@@ -1,7 +1,21 @@
 export type Side = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
 export type ElementType = 'hole' | 'rect' | 'opening';
-export type ToolType = 'move' | ElementType;
+export type AnchorPoint = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+export type ToolType = 'move' | 'ruler' | ElementType;
 export type CabinetKey = 'compact' | 'standard' | 'large' | 'industrial';
+
+export interface AlignmentElement {
+  id: number;
+  type: 'align-circular' | 'align-rectangular';
+  x: number;
+  y: number;
+  diameter: number;
+  count: number;
+  rows: number;
+  cols: number;
+  spacingX: number;
+  spacingY: number;
+}
 
 export interface CabinetSpec {
   name: string;
@@ -20,9 +34,29 @@ export interface PanelElement {
   w: number;
   h: number;
   diameter?: number;
+  anchor?: AnchorPoint;
+  radius?: number;
 }
 
 export type SideElements = Record<Side, PanelElement[]>;
+
+/* ─── Constraints ─── */
+
+export type BorderRef = 'border-left' | 'border-right' | 'border-bottom';
+
+export interface Constraint {
+  id: number;
+  /** Element or border that the distance is measured from */
+  fromRef: number | BorderRef;
+  /** Element that the distance is measured to */
+  toRef: number;
+  /** Axis of the distance measurement */
+  axis: 'x' | 'y';
+  /** Target distance in mm */
+  value: number;
+}
+
+export type SideConstraints = Record<Side, Constraint[]>;
 
 /* ─── Cart / Auth / Orders ─── */
 

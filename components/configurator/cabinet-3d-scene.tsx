@@ -83,6 +83,7 @@ export default function Cabinet3DScene() {
 
   const createBox = useCallback((scene: any) => {
     if (!BABYLON) return;
+    const B = BABYLON;
     if (boxRef.current) boxRef.current.dispose();
     materialsRef.current.forEach(m => m.dispose());
 
@@ -91,26 +92,26 @@ export default function Cabinet3DScene() {
     const h = cab.h * scaleF;
     const d = cab.d * scaleF;
 
-    const box = BABYLON.MeshBuilder.CreateBox('cabinet', { width: w, height: h, depth: d }, scene);
+    const box = B.MeshBuilder.CreateBox('cabinet', { width: w, height: h, depth: d }, scene);
     boxRef.current = box;
 
-    const multiMat = new BABYLON.MultiMaterial('cabinetMulti', scene);
+    const multiMat = new B.MultiMaterial('cabinetMulti', scene);
     const faceMats: any[] = [];
 
-    const baseColor = new BABYLON.Color3(0.85, 0.88, 0.92);
-    const activeColor = new BABYLON.Color3(0.30, 0.43, 0.96);
+    const baseColor = new B.Color3(0.85, 0.88, 0.92);
+    const activeColor = new B.Color3(0.30, 0.43, 0.96);
 
     SIDES.forEach(side => {
-      const mat = new BABYLON.StandardMaterial(`mat_${side}`, scene);
+      const mat = new B.StandardMaterial(`mat_${side}`, scene);
       const isActive = side === currentSide;
       mat.diffuseColor = isActive ? activeColor : baseColor;
       mat.alpha = isActive ? 0.95 : 0.75;
       mat.backFaceCulling = false;
-      mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+      mat.specularColor = new B.Color3(0.2, 0.2, 0.2);
 
       const elCount = sideElements[side]?.length || 0;
       if (elCount > 0 && !isActive) {
-        mat.emissiveColor = new BABYLON.Color3(0.1, 0.15, 0.05);
+        mat.emissiveColor = new B.Color3(0.1, 0.15, 0.05);
       }
       faceMats.push(mat);
     });
@@ -123,13 +124,13 @@ export default function Cabinet3DScene() {
     faceOrder.forEach((side, i) => {
       const sideIndex = SIDES.indexOf(side);
       multiMat.subMaterials.push(faceMats[sideIndex]);
-      new BABYLON.SubMesh(i, 0, verticesCount, i * 6, 6, box);
+      new B.SubMesh(i, 0, verticesCount, i * 6, 6, box);
     });
     box.material = multiMat;
 
     box.enableEdgesRendering();
     box.edgesWidth = 2.0;
-    box.edgesColor = new BABYLON.Color4(0.3, 0.4, 0.5, 0.8);
+    box.edgesColor = new B.Color4(0.3, 0.4, 0.5, 0.8);
   }, [cab, currentSide, sideElements]);
 
   useEffect(() => {

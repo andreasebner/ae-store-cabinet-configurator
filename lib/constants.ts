@@ -1,4 +1,4 @@
-import type { Side, CabinetKey, CabinetSpec, SideElements } from './types';
+import type { Side, CabinetKey, CabinetSpec, SideElements, AlignmentElement } from './types';
 
 export const SIDES: Side[] = ['front', 'back', 'left', 'right', 'top', 'bottom'];
 
@@ -65,6 +65,26 @@ export function calcPrice(cabinet: CabinetKey, sideElements: SideElements): numb
     });
   });
   return total;
+}
+
+export const SNAP_THRESHOLD = 8; // mm — snap distance for alignment points
+
+export function getAlignSnapPoints(a: AlignmentElement): { x: number; y: number }[] {
+  if (a.type === 'align-circular') {
+    return Array.from({ length: a.count }, (_, i) => {
+      const angle = (2 * Math.PI * i) / a.count - Math.PI / 2;
+      return { x: a.x + (a.diameter / 2) * Math.cos(angle), y: a.y + (a.diameter / 2) * Math.sin(angle) };
+    });
+  }
+  const points: { x: number; y: number }[] = [];
+  const gw = (a.cols - 1) * a.spacingX;
+  const gh = (a.rows - 1) * a.spacingY;
+  for (let r = 0; r < a.rows; r++) {
+    for (let c = 0; c < a.cols; c++) {
+      points.push({ x: a.x - gw / 2 + c * a.spacingX, y: a.y - gh / 2 + r * a.spacingY });
+    }
+  }
+  return points;
 }
 
 export function formatDimensions(cabinet: CabinetKey): string {
