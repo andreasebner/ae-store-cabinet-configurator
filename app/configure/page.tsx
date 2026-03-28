@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useConfiguratorStore } from '@/store/configurator-store';
 import { useCartStore } from '@/store/cart-store';
 import { CABINET_KEYS, SIDES, calcPrice, getPanelDimensions } from '@/lib/constants';
-import type { CabinetKey, ToolType, BorderRef } from '@/lib/types';
+import type { CabinetKey, ToolType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { exportProjectJSON, parseProjectFile, saveRecent, getRecentProjects, type ProjectFile } from '@/lib/project';
@@ -44,11 +44,11 @@ export default function ConfigurePage() {
   const activeTool = useConfiguratorStore(s => s.activeTool);
   const setTool = useConfiguratorStore(s => s.setTool);
   const clearCurrentSide = useConfiguratorStore(s => s.clearCurrentSide);
-  const deleteSelectedMulti = useConfiguratorStore(s => s.deleteSelectedMulti);
-  const selectedElIds = useConfiguratorStore(s => s.selectedElIds);
+  const deleteSelected = useConfiguratorStore(s => s.deleteSelected);
   const addAlignment = useConfiguratorStore(s => s.addAlignment);
-  const addConstraint = useConfiguratorStore(s => s.addConstraint);
-  const selectedElId = useConfiguratorStore(s => s.selectedElId);
+  const startConstraintPlacement = useConfiguratorStore(s => s.startConstraintPlacement);
+  const cancelConstraintPlacement = useConfiguratorStore(s => s.cancelConstraintPlacement);
+  const constraintPlacement = useConfiguratorStore(s => s.constraintPlacement);
   const currentElements = useConfiguratorStore(s => s.currentElements);
   const currentCabinet = useConfiguratorStore(s => s.currentCabinet);
   const zoomLevel = useConfiguratorStore(s => s.zoomLevel);
@@ -141,6 +141,7 @@ export default function ConfigurePage() {
   function closeMenus() {
     setFileMenuOpen(false);
     setAlignMenuOpen(false);
+    setConstraintMenuOpen(false);
   }
 
   return (
@@ -262,24 +263,14 @@ export default function ConfigurePage() {
 
             <div className="w-px h-5 bg-slate-200 mx-1" />
 
-            {/* Delete: context-aware */}
-            {selectedElIds.size > 1 ? (
-              <button
-                onClick={deleteSelectedMulti}
-                className="h-7 px-2 flex items-center gap-1 text-[11px] text-red-500 hover:bg-red-50 rounded transition"
-              >
-                <Trash2 className="h-3 w-3" />
-                Delete {selectedElIds.size}
-              </button>
-            ) : (
-              <button
-                onClick={clearCurrentSide}
-                className="h-7 px-2 flex items-center gap-1 text-[11px] text-red-500 hover:bg-red-50 rounded transition"
-              >
-                <Trash2 className="h-3 w-3" />
-                Clear All
-              </button>
-            )}
+            {/* Delete selected */}
+            <button
+              onClick={deleteSelected}
+              title="Delete selected (Del)"
+              className="h-7 px-2 flex items-center text-[11px] text-slate-500 hover:bg-slate-100 rounded transition"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
 
             <div className="w-px h-5 bg-slate-200 mx-1" />
 
@@ -332,78 +323,41 @@ export default function ConfigurePage() {
                 onClick={() => { setConstraintMenuOpen(!constraintMenuOpen); setFileMenuOpen(false); setAlignMenuOpen(false); }}
                 className={cn(
                   'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
+                  constraintPlacement ? 'bg-orange-100 text-orange-700 ring-1 ring-orange-300' :
                   constraintMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:bg-slate-100'
                 )}
               >
                 <Link className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">Constraint</span>
-                <ChevronDown className={cn('h-3 w-3 transition-transform', constraintMenuOpen && 'rotate-180')} />
+                <span className="hidden lg:inline">{constraintPlacement ? (constraintPlacement.step === 'pick-from' ? 'Pick From…' : constraintPlacement.step === 'pick-to' ? 'Pick To…' : 'Pick Element…') : 'Constraint'}</span>
+                {!constraintPlacement && <ChevronDown className={cn('h-3 w-3 transition-transform', constraintMenuOpen && 'rotate-180')} />}
               </button>
-              {constraintMenuOpen && (() => {
-                const { pw, ph } = getPanelDimensions(currentCabinet, useConfiguratorStore.getState().currentSide);
-                const els = currentElements();
-                const selEl = selectedElId !== null ? els.find(e => e.id === selectedElId) : null;
-                const canAdd = selEl !== null;
-                return (
-                  <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 min-w-[200px]">
-                    {!canAdd && (
-                      <p className="px-3 py-1.5 text-[11px] text-slate-400">Select an element first</p>
-                    )}
-                    {canAdd && (
-                      <>
-                        <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">Distance from border</p>
-                        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
-                          onClick={() => { addConstraint('border-left', selEl!.id, 'x', selEl!.x); setConstraintMenuOpen(false); }}>
-                          ← Left Border
-                        </button>
-                        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
-                          onClick={() => { addConstraint('border-right', selEl!.id, 'x', pw - selEl!.x - selEl!.w); setConstraintMenuOpen(false); }}>
-                          → Right Border
-                        </button>
-                        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
-                          onClick={() => { addConstraint('border-bottom', selEl!.id, 'y', ph - selEl!.y - selEl!.h); setConstraintMenuOpen(false); }}>
-                          ↓ Bottom Border
-                        </button>
-                        {els.filter(e => e.id !== selEl!.id).length > 0 && (
-                          <>
-                            <div className="h-px bg-slate-100 my-1" />
-                            <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">Distance to element</p>
-                            {els.filter(e => e.id !== selEl!.id).map(other => {
-                              const dx = other.x - (selEl!.x + selEl!.w);
-                              const dy = other.y - (selEl!.y + selEl!.h);
-                              const axis: 'x' | 'y' = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
-                              const dist = axis === 'x' ? Math.abs(dx) : Math.abs(dy);
-                              return (
-                                <button key={other.id}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
-                                  onClick={() => {
-                                    if (axis === 'x') {
-                                      const from = selEl!.x < other.x ? selEl!.id : other.id;
-                                      const to = selEl!.x < other.x ? other.id : selEl!.id;
-                                      const fromEl = els.find(e => e.id === from)!;
-                                      const toEl = els.find(e => e.id === to)!;
-                                      addConstraint(from, to, 'x', toEl.x - (fromEl.x + fromEl.w));
-                                    } else {
-                                      const from = selEl!.y < other.y ? selEl!.id : other.id;
-                                      const to = selEl!.y < other.y ? other.id : selEl!.id;
-                                      const fromEl = els.find(e => e.id === from)!;
-                                      const toEl = els.find(e => e.id === to)!;
-                                      addConstraint(from, to, 'y', toEl.y - (fromEl.y + fromEl.h));
-                                    }
-                                    setConstraintMenuOpen(false);
-                                  }}>
-                                  <span className="capitalize">{other.type}</span>
-                                  <span className="ml-auto font-mono text-[10px] text-slate-400">{axis} {Math.round(dist)}mm</span>
-                                </button>
-                              );
-                            })}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
+              {constraintPlacement && (
+                <button
+                  onClick={() => cancelConstraintPlacement()}
+                  className="h-7 px-1.5 text-[11px] text-orange-600 hover:bg-orange-50 rounded transition ml-0.5"
+                  title="Cancel placement"
+                >
+                  ✕
+                </button>
+              )}
+              {constraintMenuOpen && !constraintPlacement && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 min-w-[200px]">
+                  <button
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
+                    onClick={() => { startConstraintPlacement('distance'); setConstraintMenuOpen(false); }}
+                  >
+                    <Link className="h-3.5 w-3.5" />
+                    Add Distance Constraint
+                  </button>
+                  <button
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
+                    onClick={() => { startConstraintPlacement('diameter'); setConstraintMenuOpen(false); }}
+                  >
+                    <CircleDot className="h-3.5 w-3.5" />
+                    Add Diameter Constraint
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -414,9 +368,9 @@ export default function ConfigurePage() {
         </div>
 
         {/* Right sidebar: Properties · Price */}
-        <section className="w-[260px] border-l border-slate-200 bg-white flex flex-col shrink-0">
+        <section className="w-[260px] border-l border-slate-200 bg-white flex flex-col shrink-0 overflow-hidden min-h-0">
           {/* Properties & Element List */}
-          <div className="flex-1 overflow-auto min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <DetailsPanel />
           </div>
 
@@ -438,7 +392,7 @@ export default function ConfigurePage() {
       </div>
 
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileSelected} />
-      {(fileMenuOpen || alignMenuOpen) && (
+      {(fileMenuOpen || alignMenuOpen || constraintMenuOpen) && (
         <div className="fixed inset-0 z-10" onClick={closeMenus} />
       )}
       <Toast />

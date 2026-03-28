@@ -10,6 +10,8 @@ interface Measurement {
   x1: number; y1: number; x2: number; y2: number;
 }
 
+const BORDER_DETECT_PX = 12; // pixels threshold for border click detection
+
 export default function PanelEditor() {
   const {
     currentCabinet, currentSide, activeTool, zoomLevel, selectedElId, selectedElIds,
@@ -26,6 +28,10 @@ export default function PanelEditor() {
   const currentConstraints = useConfiguratorStore(s => s.currentConstraints);
   const selectedConstraintId = useConfiguratorStore(s => s.selectedConstraintId);
   const selectConstraint = useConfiguratorStore(s => s.selectConstraint);
+  const constraintPlacement = useConfiguratorStore(s => s.constraintPlacement);
+  const pickConstraintRef = useConfiguratorStore(s => s.pickConstraintRef);
+  const cancelConstraintPlacement = useConfiguratorStore(s => s.cancelConstraintPlacement);
+  const updateConstraintValue = useConfiguratorStore(s => s.updateConstraintValue);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<{ id: number; ox: number; oy: number; multi: boolean } | null>(null);
@@ -46,6 +52,11 @@ export default function PanelEditor() {
   const [measurement, setMeasurement] = useState<Measurement | null>(null);
   const [activeMeasurement, setActiveMeasurement] = useState<Measurement | null>(null);
   const measuringStart = useRef<{ x: number; y: number } | null>(null);
+
+  // Inline constraint value editing
+  const [editingConstraint, setEditingConstraint] = useState<{ id: number; x: number; y: number } | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   // Clear measurement when switching away from ruler
   useEffect(() => {
@@ -70,13 +81,33 @@ export default function PanelEditor() {
 
   const handlePanelClick = useCallback((e: React.MouseEvent) => {
     if (justInteracted.current) { justInteracted.current = false; return; }
+
+    // Constraint placement: border detection (click near panel edges)
+    if (constraintPlacement && panelRef.current) {
+      const rect = panelRef.current.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const panelW = pw * zoomLevel;
+      const panelH = ph * zoomLevel;
+      let borderRef: BorderRef | null = null;
+      if (px < BORDER_DETECT_PX) borderRef = 'border-left';
+      else if (px > panelW - BORDER_DETECT_PX) borderRef = 'border-right';
+      else if (py > panelH - BORDER_DETECT_PX) borderRef = 'border-bottom';
+      if (borderRef) {
+        pickConstraintRef(borderRef, pw, ph);
+        return;
+      }
+      // Clicking on empty area during placement — do nothing (user must click element or border)
+      return;
+    }
+
     if (activeTool === 'move' || activeTool === 'ruler') { selectElement(null); return; }
     if (!panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoomLevel;
     const y = (e.clientY - rect.top) / zoomLevel;
     addElement(activeTool as ElementType, x, y, pw, ph);
-  }, [activeTool, zoomLevel, pw, ph, addElement, selectElement]);
+  }, [activeTool, zoomLevel, pw, ph, addElement, selectElement, constraintPlacement, pickConstraintRef]);
 
   // Mousedown on the panel background — start marquee or ruler
   const handlePanelDown = useCallback((e: React.MouseEvent) => {
@@ -175,6 +206,13 @@ export default function PanelEditor() {
   const handleElDown = useCallback((e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     justInteracted.current = true;
+
+    // Constraint placement: pick element
+    if (constraintPlacement) {
+      pickConstraintRef(id, pw, ph);
+      return;
+    }
+
     const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
     if (isMulti) {
       toggleSelectElement(id);
@@ -272,7 +310,7 @@ export default function PanelEditor() {
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [els, zoomLevel, pw, ph, selectElement, toggleSelectElement, selectedElIds, moveElement, moveSelectedElements, snapElement, unsnapElement]);
+  }, [els, zoomLevel, pw, ph, selectElement, toggleSelectElement, selectedElIds, moveElement, moveSelectedElements, snapElement, unsnapElement, constraintPlacement, pickConstraintRef]);
 
   // ─── Alignment drag ───
   const handleAlignDown = useCallback((e: React.MouseEvent, id: number) => {
@@ -454,6 +492,45 @@ export default function PanelEditor() {
     const toEl = els.find(e => e.id === c.toRef);
     if (!toEl) return null;
 
+    // ─── Diameter constraint ───
+    if (c.constraintType === 'diameter') {
+      const cx = (toEl.x + toEl.w / 2) * z;
+      const cy = (toEl.y + toEl.h / 2) * z;
+      const r = ((toEl.diameter ?? Math.round(toEl.w * 22 / 36)) / 2) * z * 36 / 22;
+      const color = isSel ? '#f97316' : '#94a3b8';
+      // Draw a diameter line from left to right through center
+      const x1 = cx - r;
+      const x2 = cx + r;
+      return (
+        <g key={`con-${c.id}`} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); selectConstraint(c.id); }}>
+          {/* Transparent hit area */}
+          <line x1={x1} y1={cy} x2={x2} y2={cy} stroke="transparent" strokeWidth={12} />
+          <line x1={x1} y1={cy} x2={x2} y2={cy}
+            stroke={color} strokeWidth={isSel ? 2 : 1.5} strokeDasharray="4 3" />
+          <circle cx={x1} cy={cy} r={2.5} fill={color} />
+          <circle cx={x2} cy={cy} r={2.5} fill={color} />
+          {/* Value label */}
+          <g transform={`translate(${cx}, ${cy - r - 10})`}
+            onClick={(e) => {
+              e.stopPropagation();
+              selectConstraint(c.id);
+              setEditingConstraint({ id: c.id, x: cx, y: cy - r - 10 });
+              setEditValue(String(Math.round(c.value)));
+            }}
+            className="cursor-text"
+          >
+            <rect x={-20} y={-9} width={40} height={18} rx={3}
+              fill="white" stroke={color} strokeWidth={0.75} />
+            <text textAnchor="middle" dominantBaseline="central" fontSize={10}
+              fontFamily="monospace" fill={isSel ? '#ea580c' : '#475569'}>
+              ⌀{Math.round(c.value)}
+            </text>
+          </g>
+        </g>
+      );
+    }
+
+    // ─── Distance constraint ───
     let x1: number, y1: number, x2: number, y2: number;
     const toCx = toEl.x + toEl.w / 2;
     const toCy = toEl.y + toEl.h / 2;
@@ -488,6 +565,8 @@ export default function PanelEditor() {
 
     return (
       <g key={`con-${c.id}`} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); selectConstraint(c.id); }}>
+        {/* Transparent hit area */}
+        <line x1={x1 * z} y1={y1 * z} x2={x2 * z} y2={y2 * z} stroke="transparent" strokeWidth={12} />
         <line x1={x1 * z} y1={y1 * z} x2={x2 * z} y2={y2 * z}
           stroke={color} strokeWidth={isSel ? 2 : 1.5} strokeDasharray="4 3" />
         {/* End caps */}
@@ -503,8 +582,16 @@ export default function PanelEditor() {
         <line x1={(x2 - 4) * z} y1={y2 * z} x2={(x2 + 4) * z} y2={y2 * z}
           stroke={color} strokeWidth={isSel ? 2 : 1.5}
           style={{ display: c.axis === 'y' ? 'block' : 'none' }} />
-        {/* Value label */}
-        <g transform={`translate(${midX}, ${midY})`}>
+        {/* Value label — clickable for inline editing */}
+        <g transform={`translate(${midX}, ${midY})`}
+          onClick={(e) => {
+            e.stopPropagation();
+            selectConstraint(c.id);
+            setEditingConstraint({ id: c.id, x: midX, y: midY });
+            setEditValue(String(Math.round(c.value)));
+          }}
+          className="cursor-text"
+        >
           <rect x={-20} y={-9} width={40} height={18} rx={3}
             fill="white" stroke={color} strokeWidth={0.75} />
           <text textAnchor="middle" dominantBaseline="central" fontSize={10}
@@ -516,7 +603,7 @@ export default function PanelEditor() {
     );
   };
 
-  const cursorStyle = activeTool === 'move' ? 'default' : activeTool === 'ruler' ? 'crosshair' : 'crosshair';
+  const cursorStyle = constraintPlacement ? 'crosshair' : activeTool === 'move' ? 'default' : activeTool === 'ruler' ? 'crosshair' : 'crosshair';
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50 flex items-center justify-center p-6">
@@ -634,6 +721,68 @@ export default function PanelEditor() {
             {constraints.map(c => renderConstraint(c))}
           </g>
         </svg>
+
+        {/* Constraint placement mode: border highlight zones */}
+        {constraintPlacement && constraintPlacement.step !== 'pick-element' && (
+          <>
+            <div className="absolute top-0 left-0 h-full pointer-events-auto cursor-pointer hover:bg-orange-400/20 transition-colors"
+              style={{ width: BORDER_DETECT_PX, zIndex: 55 }}
+              onClick={(e) => { e.stopPropagation(); pickConstraintRef('border-left', pw, ph); }}
+            />
+            <div className="absolute top-0 right-0 h-full pointer-events-auto cursor-pointer hover:bg-orange-400/20 transition-colors"
+              style={{ width: BORDER_DETECT_PX, zIndex: 55 }}
+              onClick={(e) => { e.stopPropagation(); pickConstraintRef('border-right', pw, ph); }}
+            />
+            <div className="absolute bottom-0 left-0 w-full pointer-events-auto cursor-pointer hover:bg-orange-400/20 transition-colors"
+              style={{ height: BORDER_DETECT_PX, zIndex: 55 }}
+              onClick={(e) => { e.stopPropagation(); pickConstraintRef('border-bottom', pw, ph); }}
+            />
+          </>
+        )}
+
+        {/* Constraint placement mode indicator */}
+        {constraintPlacement && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-[10px] px-3 py-1 rounded-full shadow-lg pointer-events-none whitespace-nowrap" style={{ zIndex: 60 }}>
+            {constraintPlacement.step === 'pick-from' && 'Click an element or border as start reference'}
+            {constraintPlacement.step === 'pick-to' && 'Click the target element'}
+            {constraintPlacement.step === 'pick-element' && 'Click a hole element'}
+          </div>
+        )}
+
+        {/* Inline constraint value editor */}
+        {editingConstraint && (
+          <div
+            className="absolute"
+            style={{
+              left: editingConstraint.x - 28,
+              top: editingConstraint.y - 11,
+              zIndex: 60,
+            }}
+          >
+            <input
+              ref={editInputRef}
+              type="number"
+              value={editValue}
+              onChange={e => setEditValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const v = Number(editValue);
+                  if (!isNaN(v) && v >= 0) updateConstraintValue(editingConstraint.id, v, pw, ph);
+                  setEditingConstraint(null);
+                } else if (e.key === 'Escape') {
+                  setEditingConstraint(null);
+                }
+              }}
+              onBlur={() => {
+                const v = Number(editValue);
+                if (!isNaN(v) && v >= 0) updateConstraintValue(editingConstraint.id, v, pw, ph);
+                setEditingConstraint(null);
+              }}
+              autoFocus
+              className="w-14 h-5 text-[10px] text-center font-mono bg-white border border-orange-400 rounded shadow-md outline-none focus:ring-1 focus:ring-orange-500"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

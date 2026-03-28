@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CabinetKey, Side, ToolType, ElementType, PanelElement, SideElements, AlignmentElement, Constraint, SideConstraints, BorderRef } from '@/lib/types';
+import type { CabinetKey, Side, ToolType, ElementType, PanelElement, SideElements, AlignmentElement, Constraint, SideConstraints, BorderRef, ConstraintType, ConstraintPlacement } from '@/lib/types';
 import { SIDES, ELEMENT_DEFAULTS, MAX_UNDO, snap, calcPrice, getAlignSnapPoints } from '@/lib/constants';
 
 function emptySideElements(): SideElements {
@@ -43,6 +43,7 @@ interface ConfiguratorStore {
   snaps: SnapMap;
   sideConstraints: SideConstraints;
   selectedConstraintId: number | null;
+  constraintPlacement: ConstraintPlacement | null;
   undoStack: Snapshot[];
   redoStack: Snapshot[];
   toastMessage: string | null;
@@ -74,11 +75,14 @@ interface ConfiguratorStore {
   snapElement: (elId: number, alignId: number, snapIdx: number) => void;
   unsnapElement: (elId: number) => void;
 
-  addConstraint: (fromRef: number | BorderRef, toRef: number, axis: 'x' | 'y', value: number) => void;
+  addConstraint: (constraintType: ConstraintType, fromRef: number | BorderRef, toRef: number, axis: 'x' | 'y', value: number) => void;
   selectConstraint: (id: number | null) => void;
   updateConstraintValue: (id: number, value: number, pw: number, ph: number) => void;
   deleteConstraint: (id: number) => void;
   currentConstraints: () => Constraint[];
+  startConstraintPlacement: (type: ConstraintType) => void;
+  cancelConstraintPlacement: () => void;
+  pickConstraintRef: (ref: number | BorderRef, pw: number, ph: number) => void;
 
   loadProject: (cabinetKey: CabinetKey, sideElements: SideElements) => void;
   resetProject: () => void;
@@ -107,6 +111,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   snaps: {},
   sideConstraints: emptyConstraints(),
   selectedConstraintId: null,
+  constraintPlacement: null,
   undoStack: [],
   redoStack: [],
   toastMessage: null,
@@ -208,7 +213,13 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     };
   }),
 
-  deleteSelected: () => { const { selectedElId, deleteElement } = get(); if (selectedElId) deleteElement(selectedElId); },
+  deleteSelected: () => {
+    const s = get();
+    if (s.selectedElIds.size > 1) { s.deleteSelectedMulti(); return; }
+    if (s.selectedElId) { s.deleteElement(s.selectedElId); return; }
+    if (s.selectedAlignId) { s.deleteAlignment(s.selectedAlignId); return; }
+    if (s.selectedConstraintId) { s.deleteConstraint(s.selectedConstraintId); return; }
+  },
 
   deleteSelectedMulti: () => set(state => {
     const ids = state.selectedElIds;
@@ -374,16 +385,17 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
 
   /* ─── Constraint Actions ─── */
 
-  addConstraint: (fromRef, toRef, axis, value) => set(state => {
+  addConstraint: (constraintType, fromRef, toRef, axis, value) => set(state => {
     const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
-    const c: Constraint = { id: state.nextId, fromRef, toRef, axis, value };
+    const c: Constraint = { id: state.nextId, constraintType, fromRef, toRef, axis, value };
     const newConstraints = { ...state.sideConstraints };
     newConstraints[state.currentSide] = [...newConstraints[state.currentSide], c];
     return {
       sideConstraints: newConstraints,
       selectedConstraintId: c.id, selectedElId: null, selectedElIds: new Set(), selectedAlignId: null,
+      constraintPlacement: null,
       nextId: state.nextId + 1, undoStack, redoStack: [],
-      toastMessage: 'Constraint added', toastIcon: '📏',
+      toastMessage: `${constraintType === 'diameter' ? 'Diameter' : 'Distance'} constraint added`, toastIcon: '📏',
     };
   }),
 
@@ -397,33 +409,47 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     if (idx === -1) return state;
     const c = { ...constraints[idx], value: Math.max(0, value) };
     constraints[idx] = c;
-    // Move the target element to satisfy the constraint
     const newElements = { ...state.sideElements };
     const sideEls = [...newElements[side]];
-    const toIdx = sideEls.findIndex(e => e.id === c.toRef);
-    if (toIdx !== -1) {
-      const el = { ...sideEls[toIdx] };
-      if (typeof c.fromRef === 'string') {
-        // Border reference
-        if (c.axis === 'x') {
-          if (c.fromRef === 'border-left') el.x = Math.round(Math.max(0, Math.min(pw - el.w, c.value)));
-          else if (c.fromRef === 'border-right') el.x = Math.round(Math.max(0, Math.min(pw - el.w, pw - c.value - el.w)));
-        } else {
-          if (c.fromRef === 'border-bottom') el.y = Math.round(Math.max(0, Math.min(ph - el.h, ph - c.value - el.h)));
+
+    if (c.constraintType === 'diameter') {
+      // Diameter constraint: update the element's diameter
+      const elIdx = sideEls.findIndex(e => e.id === c.toRef);
+      if (elIdx !== -1) {
+        const el = { ...sideEls[elIdx] };
+        if (el.type === 'hole') {
+          el.diameter = Math.round(c.value);
+          el.w = Math.round(c.value * 36 / 22);
+          el.h = el.w;
         }
-      } else {
-        // Element-to-element reference
-        const fromEl = sideEls.find(e => e.id === c.fromRef);
-        if (fromEl) {
+        sideEls[elIdx] = el;
+        newElements[side] = sideEls;
+      }
+    } else {
+      // Distance constraint: move the target element
+      const toIdx = sideEls.findIndex(e => e.id === c.toRef);
+      if (toIdx !== -1) {
+        const el = { ...sideEls[toIdx] };
+        if (typeof c.fromRef === 'string') {
           if (c.axis === 'x') {
-            el.x = Math.round(Math.max(0, Math.min(pw - el.w, fromEl.x + fromEl.w + c.value)));
+            if (c.fromRef === 'border-left') el.x = Math.round(Math.max(0, Math.min(pw - el.w, c.value)));
+            else if (c.fromRef === 'border-right') el.x = Math.round(Math.max(0, Math.min(pw - el.w, pw - c.value - el.w)));
           } else {
-            el.y = Math.round(Math.max(0, Math.min(ph - el.h, fromEl.y + fromEl.h + c.value)));
+            if (c.fromRef === 'border-bottom') el.y = Math.round(Math.max(0, Math.min(ph - el.h, ph - c.value - el.h)));
+          }
+        } else {
+          const fromEl = sideEls.find(e => e.id === c.fromRef);
+          if (fromEl) {
+            if (c.axis === 'x') {
+              el.x = Math.round(Math.max(0, Math.min(pw - el.w, fromEl.x + fromEl.w + c.value)));
+            } else {
+              el.y = Math.round(Math.max(0, Math.min(ph - el.h, fromEl.y + fromEl.h + c.value)));
+            }
           }
         }
+        sideEls[toIdx] = el;
+        newElements[side] = sideEls;
       }
-      sideEls[toIdx] = el;
-      newElements[side] = sideEls;
     }
     return {
       sideConstraints: { ...state.sideConstraints, [side]: constraints },
@@ -447,6 +473,102 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   }),
 
   currentConstraints: () => { const s = get(); return s.sideConstraints[s.currentSide]; },
+
+  startConstraintPlacement: (type) => set({
+    constraintPlacement: type === 'diameter'
+      ? { type: 'diameter', step: 'pick-element' }
+      : { type: 'distance', step: 'pick-from' },
+    selectedElId: null, selectedElIds: new Set(), selectedAlignId: null, selectedConstraintId: null,
+  }),
+
+  cancelConstraintPlacement: () => set({ constraintPlacement: null }),
+
+  pickConstraintRef: (ref, pw, ph) => set(state => {
+    const cp = state.constraintPlacement;
+    if (!cp) return state;
+    const side = state.currentSide;
+    const sideEls = state.sideElements[side];
+
+    if (cp.type === 'diameter' && cp.step === 'pick-element') {
+      // Must be an element (number), not a border
+      if (typeof ref !== 'number') return state;
+      const el = sideEls.find(e => e.id === ref);
+      if (!el || el.type !== 'hole') {
+        return { ...state, toastMessage: 'Select a hole element for diameter constraint', toastIcon: '⚠️' };
+      }
+      // Create diameter constraint immediately
+      const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
+      const c: Constraint = {
+        id: state.nextId, constraintType: 'diameter',
+        fromRef: ref, toRef: ref, axis: 'x', value: el.diameter ?? Math.round(el.w * 22 / 36),
+      };
+      const newConstraints = { ...state.sideConstraints };
+      newConstraints[side] = [...newConstraints[side], c];
+      return {
+        sideConstraints: newConstraints, constraintPlacement: null,
+        selectedConstraintId: c.id, selectedElId: null, selectedElIds: new Set(), selectedAlignId: null,
+        nextId: state.nextId + 1, undoStack, redoStack: [],
+        toastMessage: 'Diameter constraint added', toastIcon: '📏',
+      };
+    }
+
+    if (cp.type === 'distance' && cp.step === 'pick-from') {
+      return { constraintPlacement: { ...cp, step: 'pick-to' as const, fromRef: ref } };
+    }
+
+    if (cp.type === 'distance' && cp.step === 'pick-to' && cp.fromRef !== undefined) {
+      if (typeof ref !== 'number') return { ...state, toastMessage: 'Select an element as the target', toastIcon: '⚠️' };
+      if (ref === cp.fromRef) return state; // can't constrain to self
+      const fromRef = cp.fromRef;
+      const toEl = sideEls.find(e => e.id === ref);
+      if (!toEl) return state;
+      let axis: 'x' | 'y' = 'x';
+      let dist = 0;
+      if (typeof fromRef === 'string') {
+        if (fromRef === 'border-left') { axis = 'x'; dist = toEl.x; }
+        else if (fromRef === 'border-right') { axis = 'x'; dist = pw - toEl.x - toEl.w; }
+        else if (fromRef === 'border-bottom') { axis = 'y'; dist = ph - toEl.y - toEl.h; }
+      } else {
+        const fromEl = sideEls.find(e => e.id === fromRef);
+        if (!fromEl) return state;
+        const dx = Math.abs((fromEl.x + fromEl.w / 2) - (toEl.x + toEl.w / 2));
+        const dy = Math.abs((fromEl.y + fromEl.h / 2) - (toEl.y + toEl.h / 2));
+        axis = dx >= dy ? 'x' : 'y';
+        if (axis === 'x') {
+          const [leftEl, rightEl] = fromEl.x < toEl.x ? [fromEl, toEl] : [toEl, fromEl];
+          dist = rightEl.x - (leftEl.x + leftEl.w);
+        } else {
+          const [topEl, bottomEl] = fromEl.y < toEl.y ? [fromEl, toEl] : [toEl, fromEl];
+          dist = bottomEl.y - (topEl.y + topEl.h);
+        }
+      }
+      const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
+      const actualFrom = typeof fromRef === 'number' ? (
+        axis === 'x'
+          ? (sideEls.find(e => e.id === fromRef)!.x < toEl.x ? fromRef : ref)
+          : (sideEls.find(e => e.id === fromRef)!.y < toEl.y ? fromRef : ref)
+      ) : fromRef;
+      const actualTo = typeof fromRef === 'number' ? (
+        axis === 'x'
+          ? (sideEls.find(e => e.id === fromRef)!.x < toEl.x ? ref : fromRef)
+          : (sideEls.find(e => e.id === fromRef)!.y < toEl.y ? ref : fromRef)
+      ) : ref;
+      const c: Constraint = {
+        id: state.nextId, constraintType: 'distance',
+        fromRef: actualFrom, toRef: actualTo, axis, value: Math.max(0, Math.round(dist)),
+      };
+      const newConstraints = { ...state.sideConstraints };
+      newConstraints[side] = [...newConstraints[side], c];
+      return {
+        sideConstraints: newConstraints, constraintPlacement: null,
+        selectedConstraintId: c.id, selectedElId: null, selectedElIds: new Set(), selectedAlignId: null,
+        nextId: state.nextId + 1, undoStack, redoStack: [],
+        toastMessage: 'Distance constraint added', toastIcon: '📏',
+      };
+    }
+
+    return state;
+  }),
 
   /* ─── Undo / Redo ─── */
 

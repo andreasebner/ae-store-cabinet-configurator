@@ -43,17 +43,26 @@ export type SideElements = Record<Side, PanelElement[]>;
 /* ─── Constraints ─── */
 
 export type BorderRef = 'border-left' | 'border-right' | 'border-bottom';
+export type ConstraintType = 'distance' | 'diameter';
 
 export interface Constraint {
   id: number;
-  /** Element or border that the distance is measured from */
+  constraintType: ConstraintType;
+  /** Element or border that the distance is measured from (distance only) */
   fromRef: number | BorderRef;
-  /** Element that the distance is measured to */
+  /** Target element */
   toRef: number;
-  /** Axis of the distance measurement */
+  /** Axis of the distance measurement (distance only) */
   axis: 'x' | 'y';
-  /** Target distance in mm */
+  /** Constraint value in mm (distance or diameter) */
   value: number;
+}
+
+/** State for interactive constraint placement */
+export interface ConstraintPlacement {
+  type: ConstraintType;
+  step: 'pick-from' | 'pick-to' | 'pick-element';
+  fromRef?: number | BorderRef;
 }
 
 export type SideConstraints = Record<Side, Constraint[]>;

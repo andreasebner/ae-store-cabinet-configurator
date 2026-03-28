@@ -78,45 +78,67 @@ export default function DetailsPanel() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Properties */}
-      <div className="p-3 border-b border-slate-200">
+      {/* Properties — scrollable, capped height */}
+      <div className="shrink-0 overflow-y-auto p-3 border-b border-slate-200" style={{ maxHeight: 'calc(50vh - 80px)' }}>
         <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Properties</h3>
         {selectedConstraint ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 p-2 rounded border bg-orange-50 border-orange-200">
-              <Link className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-medium">Distance Constraint</span>
+            <div className={cn('flex items-center gap-2 p-2 rounded border',
+              selectedConstraint.constraintType === 'diameter' ? 'bg-amber-50 border-amber-200' : 'bg-orange-50 border-orange-200'
+            )}>
+              <Link className={cn('h-4 w-4', selectedConstraint.constraintType === 'diameter' ? 'text-amber-500' : 'text-orange-500')} />
+              <span className="text-sm font-medium">{selectedConstraint.constraintType === 'diameter' ? 'Diameter' : 'Distance'} Constraint</span>
             </div>
 
-            <div className="space-y-2">
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-0.5">From</label>
-                <div className="h-7 flex items-center text-xs px-2 bg-slate-50 border border-slate-200 rounded text-slate-600">
-                  {refLabel(selectedConstraint.fromRef)}
+            {selectedConstraint.constraintType === 'diameter' ? (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Element</label>
+                  <div className="h-7 flex items-center text-xs px-2 bg-slate-50 border border-slate-200 rounded text-slate-600">
+                    {refLabel(selectedConstraint.toRef)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Diameter (mm)</label>
+                  <input type="number" step={1} min={1} value={selectedConstraint.value}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      if (!isNaN(v)) updateConstraintValue(selectedConstraint.id, v, pw, ph);
+                    }}
+                    className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-amber-500 outline-none" />
                 </div>
               </div>
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-0.5">To</label>
-                <div className="h-7 flex items-center text-xs px-2 bg-slate-50 border border-slate-200 rounded text-slate-600">
-                  {refLabel(selectedConstraint.toRef)}
+            ) : (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">From</label>
+                  <div className="h-7 flex items-center text-xs px-2 bg-slate-50 border border-slate-200 rounded text-slate-600">
+                    {refLabel(selectedConstraint.fromRef)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">To</label>
+                  <div className="h-7 flex items-center text-xs px-2 bg-slate-50 border border-slate-200 rounded text-slate-600">
+                    {refLabel(selectedConstraint.toRef)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Axis</label>
+                  <div className="h-7 flex items-center text-xs px-2 bg-slate-50 border border-slate-200 rounded text-slate-600 uppercase">
+                    {selectedConstraint.axis}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Distance (mm)</label>
+                  <input type="number" step={5} min={0} value={selectedConstraint.value}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      if (!isNaN(v)) updateConstraintValue(selectedConstraint.id, v, pw, ph);
+                    }}
+                    className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-orange-500 outline-none" />
                 </div>
               </div>
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-0.5">Axis</label>
-                <div className="h-7 flex items-center text-xs px-2 bg-slate-50 border border-slate-200 rounded text-slate-600 uppercase">
-                  {selectedConstraint.axis}
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-0.5">Distance (mm)</label>
-                <input type="number" step={5} min={0} value={selectedConstraint.value}
-                  onChange={e => {
-                    const v = Number(e.target.value);
-                    if (!isNaN(v)) updateConstraintValue(selectedConstraint.id, v, pw, ph);
-                  }}
-                  className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-orange-500 outline-none" />
-              </div>
-            </div>
+            )}
 
             <button
               onClick={() => deleteConstraint(selectedConstraint.id)}
@@ -298,7 +320,7 @@ export default function DetailsPanel() {
       </div>
 
       {/* Element & Alignment list */}
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-y-auto min-h-0 p-3">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Elements</h3>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 capitalize">
@@ -345,9 +367,13 @@ export default function DetailsPanel() {
                 onClick={() => selectConstraint(c.id)}
               >
                 <Link className="h-3.5 w-3.5 text-orange-500" />
-                <span className="truncate">{typeof c.fromRef === 'string' ? c.fromRef.replace('border-', '') : `#${c.fromRef}`} → #{c.toRef}</span>
+                <span className="truncate">
+                  {c.constraintType === 'diameter'
+                    ? `⌀ ${refLabel(c.toRef)}`
+                    : `${typeof c.fromRef === 'string' ? c.fromRef.replace('border-', '') : `#${c.fromRef}`} → #${c.toRef}`}
+                </span>
                 <span className="ml-auto font-mono text-[10px] text-slate-400">
-                  {Math.round(c.value)}mm
+                  {c.constraintType === 'diameter' ? `⌀${Math.round(c.value)}` : `${Math.round(c.value)}mm`}
                 </span>
               </button>
             ))}
