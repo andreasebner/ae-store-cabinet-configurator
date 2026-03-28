@@ -179,9 +179,9 @@ export default function ConfigurePage() {
     <div className="h-screen flex flex-col bg-slate-100">
       <ConfigHeader />
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         {/* Left ~1/3: 3D Preview + Side Selection */}
-        <div className="w-1/3 flex flex-col border-r border-slate-200 min-h-0">
+        <div className="w-1/3 flex flex-col border-r border-slate-200 min-h-0 overflow-hidden">
           <section className="flex-1 bg-slate-50 min-h-0 relative">
             <Cabinet3DScene />
           </section>
