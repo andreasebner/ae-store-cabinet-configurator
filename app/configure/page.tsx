@@ -193,13 +193,14 @@ export default function ConfigurePage() {
             <div className="relative">
               <button
                 onClick={() => { setFileMenuOpen(!fileMenuOpen); setAlignMenuOpen(false); setConstraintMenuOpen(false); }}
+                title="File"
                 className={cn(
                   'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
                   fileMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:bg-slate-100'
                 )}
               >
                 <FilePlus className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">File</span>
+                <span className="hidden">File</span>
                 <ChevronDown className={cn('h-3 w-3 transition-transform', fileMenuOpen && 'rotate-180')} />
               </button>
               {fileMenuOpen && (
@@ -244,7 +245,7 @@ export default function ConfigurePage() {
                 )}
               >
                 <t.Icon className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">{t.label}</span>
+                <span className="hidden">{t.label}</span>
               </button>
             ))}
 
@@ -278,13 +279,14 @@ export default function ConfigurePage() {
             <div className="relative">
               <button
                 onClick={() => { setAlignMenuOpen(!alignMenuOpen); setFileMenuOpen(false); setConstraintMenuOpen(false); }}
+                title="Alignment"
                 className={cn(
                   'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
                   alignMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:bg-slate-100'
                 )}
               >
                 <Grid3X3 className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">Alignment</span>
+                <span className="hidden">Alignment</span>
                 <ChevronDown className={cn('h-3 w-3 transition-transform', alignMenuOpen && 'rotate-180')} />
               </button>
               {alignMenuOpen && (
@@ -321,6 +323,7 @@ export default function ConfigurePage() {
             <div className="relative">
               <button
                 onClick={() => { setConstraintMenuOpen(!constraintMenuOpen); setFileMenuOpen(false); setAlignMenuOpen(false); }}
+                title="Constraint"
                 className={cn(
                   'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
                   constraintPlacement ? 'bg-orange-100 text-orange-700 ring-1 ring-orange-300' :
@@ -328,7 +331,7 @@ export default function ConfigurePage() {
                 )}
               >
                 <Link className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">{constraintPlacement ? (constraintPlacement.step === 'pick-from' ? 'Pick From…' : constraintPlacement.step === 'pick-to' ? 'Pick To…' : 'Pick Element…') : 'Constraint'}</span>
+                <span className="hidden">{constraintPlacement ? (constraintPlacement.step === 'pick-from' ? 'Pick From…' : constraintPlacement.step === 'pick-to' ? 'Pick To…' : 'Pick Element…') : 'Constraint'}</span>
                 {!constraintPlacement && <ChevronDown className={cn('h-3 w-3 transition-transform', constraintMenuOpen && 'rotate-180')} />}
               </button>
               {constraintPlacement && (
