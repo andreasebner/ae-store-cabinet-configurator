@@ -67,6 +67,7 @@ interface ConfiguratorStore {
   deleteSelected: () => void;
   deleteSelectedMulti: () => void;
   clearCurrentSide: () => void;
+  replaceCurrentSideElements: (elements: Omit<PanelElement, 'id'>[]) => void;
 
   addAlignment: (type: 'circular' | 'rectangular', pw: number, ph: number) => void;
   selectAlignment: (id: number | null) => void;
@@ -150,7 +151,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       id: state.nextId, type, x, y, w: d.w, h: d.h,
       ...(type === 'hole' ? { diameter: d.diameter } : {}),
       ...(type === 'rect' ? { anchor: 'center' as const, radius: 3 } : {}),
-      ...(type === 'text' ? { text: (overrides as any)?.text || 'Label', fontSize: (overrides as any)?.fontSize || 10, anchor: 'center' as const } : {}),
+      ...(type === 'text' ? { text: (overrides as any)?.text || 'Label', fontSize: (overrides as any)?.fontSize || 10, anchor: 'bottom-left' as const } : {}),
     };
     const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
     const newElements = { ...state.sideElements };
@@ -307,6 +308,31 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       selectedElId: null, selectedAlignId: null, selectedConstraintId: null, undoStack, redoStack: [],
       price: calcPrice(state.currentCabinet, newElements),
       toastMessage: 'Side cleared', toastIcon: '🗑',
+    };
+  }),
+
+  replaceCurrentSideElements: (elements) => set(state => {
+    const side = state.currentSide;
+    const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
+    let nextId = state.nextId;
+    const newEls: PanelElement[] = elements.map(el => ({ ...el, id: nextId++ } as PanelElement));
+    const newElements = { ...state.sideElements };
+    newElements[side] = newEls;
+    // Clear alignments, snaps, constraints for this side
+    const newAlignments = { ...state.sideAlignments };
+    newAlignments[side] = [];
+    const newConstraints = { ...state.sideConstraints };
+    newConstraints[side] = [];
+    const removedAlignIds = new Set(state.sideAlignments[side].map(a => a.id));
+    const newSnaps: SnapMap = {};
+    for (const [elId, s] of Object.entries(state.snaps)) {
+      if (!removedAlignIds.has(s.alignId)) newSnaps[Number(elId)] = s;
+    }
+    return {
+      sideElements: newElements, sideAlignments: newAlignments, sideConstraints: newConstraints, snaps: newSnaps,
+      selectedElId: null, selectedAlignId: null, selectedConstraintId: null,
+      nextId, undoStack, redoStack: [],
+      price: calcPrice(state.currentCabinet, newElements),
     };
   }),
 

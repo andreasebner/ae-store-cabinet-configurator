@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { exportProjectJSON, parseProjectFile, saveRecent, getRecentProjects, removeRecent, createProjectFile, type ProjectFile } from '@/lib/project';
 import { parseDxfToSvg } from '@/lib/dxf-to-svg';
+import { exportPanelDxf, importPanelDxf } from '@/lib/panel-dxf';
 import { ELEMENT_DEFAULTS } from '@/lib/constants';
 import ConfigHeader from '@/components/configurator/config-header';
 import PanelEditor from '@/components/configurator/panel-editor';
@@ -60,6 +61,7 @@ export default function ConfigurePage() {
   const setZoom = useConfiguratorStore(s => s.setZoom);
   const loadProjectState = useConfiguratorStore(s => s.loadProject);
   const resetProject = useConfiguratorStore(s => s.resetProject);
+  const replaceCurrentSideElements = useConfiguratorStore(s => s.replaceCurrentSideElements);
   const price = calcPrice(currentCabinet, sideElements);
   const { addItem } = useCartStore();
   const showToast = useConfiguratorStore(s => s.showToast);
@@ -72,6 +74,7 @@ export default function ConfigurePage() {
   const [recentProjects, setRecentProjects] = useState<ProjectFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dxfInputRef = useRef<HTMLInputElement>(null);
+  const panelDxfInputRef = useRef<HTMLInputElement>(null);
 
   const [projectName, setProjectName] = useState('Standard Design');
   const [showNameDialog, setShowNameDialog] = useState(false);
@@ -193,6 +196,46 @@ export default function ConfigurePage() {
     setFileMenuOpen(false);
   }
 
+  function handleExportPanelDxf() {
+    const { pw, ph } = getPanelDimensions(currentCabinet, currentSide);
+    const els = currentElements();
+    const dxfContent = exportPanelDxf(els, pw, ph);
+    const blob = new Blob([dxfContent], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `panel-${currentSide}-${Date.now()}.dxf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Panel exported as DXF (${currentSide})`, '📐');
+    setFileMenuOpen(false);
+  }
+
+  function handleImportPanelDxf() {
+    panelDxfInputRef.current?.click();
+    setFileMenuOpen(false);
+  }
+
+  function handlePanelDxfSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const result = importPanelDxf(text);
+        replaceCurrentSideElements(result.elements);
+        showToast(`Imported ${result.elements.length} element${result.elements.length !== 1 ? 's' : ''} from DXF`, '📐');
+      } catch (err: any) {
+        showToast(err.message || 'Failed to parse DXF panel file', '❌');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   function handleDxfSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -298,6 +341,13 @@ export default function ConfigurePage() {
                   <div className="h-px bg-slate-100 my-1" />
                   <button onClick={handleImportDxf} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
                     <Upload className="h-3.5 w-3.5" /> Custom Shape (.dxf)
+                  </button>
+                  <div className="h-px bg-slate-100 my-1" />
+                  <button onClick={handleExportPanelDxf} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
+                    <Download className="h-3.5 w-3.5" /> Export Panel (.dxf)
+                  </button>
+                  <button onClick={handleImportPanelDxf} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
+                    <Upload className="h-3.5 w-3.5" /> Import Panel (.dxf)
                   </button>
                   {recentProjects.length > 0 && (
                     <>
@@ -631,6 +681,7 @@ export default function ConfigurePage() {
 
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileSelected} />
       <input ref={dxfInputRef} type="file" accept=".dxf" className="hidden" onChange={handleDxfSelected} />
+      <input ref={panelDxfInputRef} type="file" accept=".dxf" className="hidden" onChange={handlePanelDxfSelected} />
       {(fileMenuOpen || alignMenuOpen || constraintMenuOpen || componentMenuOpen || shapeMenuOpen) && (
         <div className="fixed inset-0 z-10" onClick={closeMenus} />
       )}
