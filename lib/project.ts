@@ -14,7 +14,7 @@ const MAX_RECENT = 10;
 
 const VALID_SIDES: Side[] = ['front', 'back', 'left', 'right', 'top', 'bottom'];
 const VALID_CABINET_KEYS: CabinetKey[] = ['compact', 'standard', 'large', 'industrial'];
-const VALID_ELEMENT_TYPES = ['hole', 'rect', 'opening'];
+const VALID_ELEMENT_TYPES = ['hole', 'rect', 'custom', 'text'];
 
 export function createProjectFile(
   name: string,
@@ -96,5 +96,15 @@ export function getRecentProjects(): ProjectFile[] {
     );
   } catch {
     return [];
+  }
+}
+
+export function removeRecent(createdAt: string): void {
+  try {
+    const existing = getRecentProjects();
+    const updated = existing.filter(p => p.createdAt !== createdAt);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch {
+    // localStorage may be unavailable
   }
 }

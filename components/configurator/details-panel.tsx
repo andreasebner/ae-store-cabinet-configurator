@@ -1,10 +1,10 @@
 'use client';
 
 import { useConfiguratorStore } from '@/store/configurator-store';
-import { ELEMENT_PRICES, getPanelDimensions } from '@/lib/constants';
+import { ELEMENT_PRICES, getPanelDimensions, COMPONENT_MAP } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import type { AnchorPoint, BorderRef } from '@/lib/types';
-import { CircleDot, Square, RectangleHorizontal, Trash2, Mouse, Grid3X3, Link, Shapes } from 'lucide-react';
+import { CircleDot, Square, Trash2, Mouse, Grid3X3, Link, Shapes, Plug, Type } from 'lucide-react';
 
 const ANCHOR_OPTIONS: { key: AnchorPoint; label: string; pos: string }[] = [
   { key: 'top-left', label: 'TL', pos: 'top-0 left-0' },
@@ -17,6 +17,7 @@ const ANCHOR_OPTIONS: { key: AnchorPoint; label: string; pos: string }[] = [
 export default function DetailsPanel() {
   const { selectedElId, currentElements, updateElementProp, deleteElement, currentSide, selectElement, currentCabinet } = useConfiguratorStore();
   const selectedAlignId = useConfiguratorStore(s => s.selectedAlignId);
+  const snaps = useConfiguratorStore(s => s.snaps);
   const currentAlignments = useConfiguratorStore(s => s.currentAlignments);
   const updateAlignmentProp = useConfiguratorStore(s => s.updateAlignmentProp);
   const deleteAlignment = useConfiguratorStore(s => s.deleteAlignment);
@@ -47,21 +48,23 @@ export default function DetailsPanel() {
     if (!isNaN(n) && selectedAlign) updateAlignmentProp(selectedAlign.id, prop, n);
   };
 
-  const typeIcon = (type: string, size = 'h-3.5 w-3.5') => {
+  const typeIcon = (type: string, size = 'h-3.5 w-3.5', componentId?: string) => {
+    if (componentId) return <Plug className={cn(size, 'text-rose-500')} />;
     switch (type) {
       case 'hole': return <CircleDot className={cn(size, 'text-amber-500')} />;
       case 'rect': return <Square className={cn(size, 'text-sky-500')} />;
-      case 'opening': return <RectangleHorizontal className={cn(size, 'text-emerald-500')} />;
+      case 'text': return <Type className={cn(size, 'text-teal-500')} />;
       case 'custom': return <Shapes className={cn(size, 'text-violet-500')} />;
       default: return null;
     }
   };
 
-  const typeBg = (type: string) => {
+  const typeBg = (type: string, componentId?: string) => {
+    if (componentId) return 'bg-rose-50 border-rose-200';
     switch (type) {
       case 'hole': return 'bg-amber-50 border-amber-200';
       case 'rect': return 'bg-sky-50 border-sky-200';
-      case 'opening': return 'bg-emerald-50 border-emerald-200';
+      case 'text': return 'bg-teal-50 border-teal-200';
       case 'custom': return 'bg-violet-50 border-violet-200';
       default: return '';
     }
@@ -230,11 +233,15 @@ export default function DetailsPanel() {
           </div>
         ) : el ? (
           <div className="space-y-3">
-            <div className={cn('flex items-center gap-2 p-2 rounded border', typeBg(el.type))}>
-              {typeIcon(el.type, 'h-4 w-4')}
-              <span className="text-sm font-medium capitalize">{el.type}</span>
-              <span className="ml-auto text-xs text-slate-500">€{ELEMENT_PRICES[el.type]?.toFixed(2)}</span>
+            <div className={cn('flex items-center gap-2 p-2 rounded border', typeBg(el.type, el.componentId))}>
+              {typeIcon(el.type, 'h-4 w-4', el.componentId)}
+              <span className="text-sm font-medium capitalize">{el.componentId ? (COMPONENT_MAP[el.componentId]?.label ?? 'Component') : el.type}</span>
+              <span className="ml-auto text-xs text-slate-500">€{(el.componentId ? COMPONENT_MAP[el.componentId]?.price : ELEMENT_PRICES[el.type])?.toFixed(2)}</span>
             </div>
+
+            {el.componentId && COMPONENT_MAP[el.componentId]?.description && (
+              <p className="text-[10px] text-slate-400 px-1">{COMPONENT_MAP[el.componentId].description}</p>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -249,13 +256,15 @@ export default function DetailsPanel() {
                   onChange={e => handleChange('y', e.target.value)}
                   className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 outline-none" />
               </div>
-              {el.type === 'hole' ? (
+              {el.type === 'hole' && !el.componentId ? (
                 <div className="col-span-2">
                   <label className="text-[10px] text-slate-400 block mb-0.5">Diameter (mm)</label>
                   <input type="number" step={1} min={5} value={el.diameter ?? Math.round(el.w * 22 / 36)}
                     onChange={e => handleChange('diameter', e.target.value)}
                     className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 outline-none" />
                 </div>
+              ) : el.componentId ? (
+                <div className="col-span-2 text-[10px] text-slate-400 px-1">Fixed size: {el.w}×{el.h} mm</div>
               ) : (
                 <>
                   <div>
@@ -273,8 +282,8 @@ export default function DetailsPanel() {
                 </>
               )}
 
-              {/* Rect-only: Anchor + Radius */}
-              {el.type === 'rect' && (
+              {/* Rect / Text: Anchor point */}
+              {(el.type === 'rect' || el.type === 'text') && !el.componentId && (
                 <>
                   <div className="col-span-2">
                     <label className="text-[10px] text-slate-400 block mb-1">Anchor Point</label>
@@ -295,10 +304,30 @@ export default function DetailsPanel() {
                       ))}
                     </div>
                   </div>
+                  {el.type === 'rect' && (
+                    <div className="col-span-2">
+                      <label className="text-[10px] text-slate-400 block mb-0.5">Edge Radius (mm)</label>
+                      <input type="number" step={1} min={3} value={el.radius ?? 3}
+                        onChange={e => handleChange('radius', e.target.value)}
+                        className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 outline-none" />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Text-only: content + font size */}
+              {el.type === 'text' && (
+                <>
                   <div className="col-span-2">
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Edge Radius (mm)</label>
-                    <input type="number" step={1} min={3} value={el.radius ?? 3}
-                      onChange={e => handleChange('radius', e.target.value)}
+                    <label className="text-[10px] text-slate-400 block mb-0.5">Text</label>
+                    <input type="text" value={el.text ?? 'Label'}
+                      onChange={e => updateElementProp(el.id, 'text', e.target.value)}
+                      className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 outline-none" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[10px] text-slate-400 block mb-0.5">Font Size (mm)</label>
+                    <input type="number" step={1} min={5} max={40} value={el.fontSize ?? 10}
+                      onChange={e => handleChange('fontSize', e.target.value)}
                       className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 outline-none" />
                   </div>
                 </>
@@ -330,27 +359,53 @@ export default function DetailsPanel() {
           </span>
         </div>
 
-        {/* Alignments */}
+        {/* Alignments with snapped child elements */}
         {aligns.length > 0 && (
           <div className="space-y-0.5 mb-1">
-            {aligns.map(a => (
-              <button
-                key={`al-${a.id}`}
-                className={cn(
-                  'w-full flex items-center gap-2 h-7 px-2 rounded text-xs transition-colors text-left',
-                  selectedAlignId === a.id
-                    ? (a.type === 'align-circular' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-cyan-50 text-cyan-700 border border-cyan-200')
-                    : 'hover:bg-slate-50 text-slate-600'
-                )}
-                onClick={() => useConfiguratorStore.getState().selectAlignment(a.id)}
-              >
-                {a.type === 'align-circular' ? <CircleDot className="h-3.5 w-3.5 text-purple-500" /> : <Grid3X3 className="h-3.5 w-3.5 text-cyan-500" />}
-                <span>{a.type === 'align-circular' ? 'Circular' : 'Rect'}</span>
-                <span className="ml-auto font-mono text-[10px] text-slate-400">
-                  {a.type === 'align-circular' ? `⌀${a.diameter} ×${a.count}` : `${a.rows}×${a.cols}`}
-                </span>
-              </button>
-            ))}
+            {aligns.map(a => {
+              const snappedEls = els.filter(e => snaps[e.id]?.alignId === a.id);
+              return (
+                <div key={`al-${a.id}`}>
+                  <button
+                    className={cn(
+                      'w-full flex items-center gap-2 h-7 px-2 rounded text-xs transition-colors text-left',
+                      selectedAlignId === a.id
+                        ? (a.type === 'align-circular' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-cyan-50 text-cyan-700 border border-cyan-200')
+                        : 'hover:bg-slate-50 text-slate-600'
+                    )}
+                    onClick={() => useConfiguratorStore.getState().selectAlignment(a.id)}
+                  >
+                    {a.type === 'align-circular' ? <CircleDot className="h-3.5 w-3.5 text-purple-500" /> : <Grid3X3 className="h-3.5 w-3.5 text-cyan-500" />}
+                    <span>{a.type === 'align-circular' ? 'Circular' : 'Rect'}</span>
+                    <span className="ml-auto font-mono text-[10px] text-slate-400">
+                      {a.type === 'align-circular' ? `⌀${a.diameter} ×${a.count}` : `${a.rows}×${a.cols}`}
+                    </span>
+                  </button>
+                  {snappedEls.length > 0 && (
+                    <div className="space-y-0.5 ml-4 mt-0.5 border-l-2 border-slate-200 pl-1.5">
+                      {snappedEls.map(item => (
+                        <button
+                          key={item.id}
+                          className={cn(
+                            'w-full flex items-center gap-2 h-6 px-1.5 rounded text-[11px] transition-colors text-left',
+                            selectedElId === item.id
+                              ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                              : 'hover:bg-slate-50 text-slate-500'
+                          )}
+                          onClick={() => selectElement(item.id)}
+                        >
+                          {typeIcon(item.type, 'h-3 w-3', item.componentId)}
+                          <span className="capitalize truncate">{item.componentId ? (COMPONENT_MAP[item.componentId]?.label ?? 'Component') : item.type}</span>
+                          <span className="ml-auto font-mono text-[9px] text-slate-400 shrink-0">
+                            {item.type === 'hole' ? `⌀${item.diameter ?? Math.round(item.w * 22 / 36)}` : `${item.x},${item.y}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -382,32 +437,38 @@ export default function DetailsPanel() {
           </div>
         )}
 
-        {els.length === 0 && aligns.length === 0 && constraints.length === 0 ? (
-          <p className="text-xs text-slate-400 mt-3 text-center">
-            No elements yet.<br />Select a tool and click the panel.
-          </p>
-        ) : (
-          <div className="space-y-0.5">
-            {els.map(item => (
-              <button
-                key={item.id}
-                className={cn(
-                  'w-full flex items-center gap-2 h-7 px-2 rounded text-xs transition-colors text-left',
-                  selectedElId === item.id
-                    ? 'bg-brand-50 text-brand-700 border border-brand-200'
-                    : 'hover:bg-slate-50 text-slate-600'
-                )}
-                onClick={() => selectElement(item.id)}
-              >
-                {typeIcon(item.type)}
-                <span className="capitalize">{item.type}</span>
-                <span className="ml-auto font-mono text-[10px] text-slate-400">
-                  {item.type === 'hole' ? `⌀${item.diameter ?? Math.round(item.w * 22 / 36)}` : `${item.x},${item.y}`}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+        {(() => {
+          const unsnappedEls = els.filter(e => !snaps[e.id]);
+          const totalItems = unsnappedEls.length + aligns.length + constraints.length + els.filter(e => !!snaps[e.id]).length;
+          if (totalItems === 0) return (
+            <p className="text-xs text-slate-400 mt-3 text-center">
+              No elements yet.<br />Select a tool and click the panel.
+            </p>
+          );
+          if (unsnappedEls.length === 0) return null;
+          return (
+            <div className="space-y-0.5">
+              {unsnappedEls.map(item => (
+                <button
+                  key={item.id}
+                  className={cn(
+                    'w-full flex items-center gap-2 h-7 px-2 rounded text-xs transition-colors text-left',
+                    selectedElId === item.id
+                      ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                      : 'hover:bg-slate-50 text-slate-600'
+                  )}
+                  onClick={() => selectElement(item.id)}
+                >
+                  {typeIcon(item.type, undefined, item.componentId)}
+                  <span className="capitalize truncate">{item.componentId ? (COMPONENT_MAP[item.componentId]?.label ?? 'Component') : item.type}</span>
+                  <span className="ml-auto font-mono text-[10px] text-slate-400 shrink-0">
+                    {item.componentId ? `${item.x},${item.y}` : item.type === 'hole' ? `⌀${item.diameter ?? Math.round(item.w * 22 / 36)}` : `${item.x},${item.y}`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

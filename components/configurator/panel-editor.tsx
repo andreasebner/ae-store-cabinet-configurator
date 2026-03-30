@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, useLayoutEffect } from 'react';
 import { useConfiguratorStore } from '@/store/configurator-store';
-import { getPanelDimensions, snap, SNAP_GRID, getAlignSnapPoints, SNAP_THRESHOLD } from '@/lib/constants';
+import { getPanelDimensions, snap, SNAP_GRID, getAlignSnapPoints, SNAP_THRESHOLD, COMPONENT_MAP } from '@/lib/constants';
 import type { ElementType, AlignmentElement, Constraint, BorderRef } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -12,7 +12,11 @@ interface Measurement {
 
 const BORDER_DETECT_PX = 12; // pixels threshold for border click detection
 
-export default function PanelEditor() {
+interface PanelEditorProps {
+  toolOverrides?: { w?: number; h?: number; diameter?: number; text?: string; fontSize?: number };
+}
+
+export default function PanelEditor({ toolOverrides }: PanelEditorProps) {
   const {
     currentCabinet, currentSide, activeTool, zoomLevel, selectedElId, selectedElIds,
     addElement, moveElement, moveSelectedElements, resizeElement, selectElement, toggleSelectElement, currentElements,
@@ -33,6 +37,7 @@ export default function PanelEditor() {
   const pickConstraintRef = useConfiguratorStore(s => s.pickConstraintRef);
   const cancelConstraintPlacement = useConfiguratorStore(s => s.cancelConstraintPlacement);
   const updateConstraintValue = useConfiguratorStore(s => s.updateConstraintValue);
+  const updateElementProp = useConfiguratorStore(s => s.updateElementProp);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<{ id: number; ox: number; oy: number; multi: boolean } | null>(null);
@@ -54,10 +59,20 @@ export default function PanelEditor() {
   const [activeMeasurement, setActiveMeasurement] = useState<Measurement | null>(null);
   const measuringStart = useRef<{ x: number; y: number } | null>(null);
 
+  // Zoom-to-cursor: track zoom level in ref (avoids stale closure in native wheel handler)
+  const zoomLevelRef = useRef(zoomLevel);
+  useEffect(() => { zoomLevelRef.current = zoomLevel; }, [zoomLevel]);
+  const pendingZoomAdjust = useRef<{ mmX: number; mmY: number; viewX: number; viewY: number; newZoom: number } | null>(null);
+
   // Inline constraint value editing
   const [editingConstraint, setEditingConstraint] = useState<{ id: number; x: number; y: number } | null>(null);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline text editing state
+  const [editingTextId, setEditingTextId] = useState<number | null>(null);
+  const [editingTextValue, setEditingTextValue] = useState('');
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   // Clear measurement when switching away from ruler
   useEffect(() => {
@@ -102,16 +117,17 @@ export default function PanelEditor() {
       return;
     }
 
-    if (activeTool === 'move' || activeTool === 'ruler') { selectElement(null); return; }
+    if (activeTool === 'move' || activeTool === 'pan' || activeTool === 'ruler') { selectElement(null); return; }
     if (!panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoomLevel;
     const y = (e.clientY - rect.top) / zoomLevel;
-    addElement(activeTool as ElementType, x, y, pw, ph);
-  }, [activeTool, zoomLevel, pw, ph, addElement, selectElement, constraintPlacement, pickConstraintRef]);
+    addElement(activeTool as ElementType, x, y, pw, ph, toolOverrides);
+  }, [activeTool, zoomLevel, pw, ph, addElement, selectElement, constraintPlacement, pickConstraintRef, toolOverrides]);
 
   // Mousedown on the panel background — start marquee or ruler
   const handlePanelDown = useCallback((e: React.MouseEvent) => {
+    if (activeTool === 'pan') return; // pan is handled on the wrapper
     if (e.target !== panelRef.current) return;
     if (!panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
@@ -373,11 +389,12 @@ export default function PanelEditor() {
     window.addEventListener('mouseup', onUp);
   }, [els, zoomLevel, resizeElement]);
 
-  const elStyle = (type: string) => {
+  const elStyle = (type: string, componentId?: string) => {
+    if (componentId) return 'bg-rose-400/60 border-2 border-rose-600 shadow-sm';
     switch (type) {
       case 'hole': return 'bg-amber-400/80 rounded-full border-2 border-amber-600 shadow-inner';
       case 'rect': return 'bg-sky-400/60 border-2 border-sky-600 shadow-sm ';
-      case 'opening': return 'bg-emerald-400/60 border-2 border-emerald-600 rounded-sm shadow-sm';
+      case 'text': return 'border border-dashed border-slate-400 bg-white/80';
       case 'custom': return 'border-2 border-violet-500 shadow-sm';
       default: return '';
     }
@@ -605,23 +622,68 @@ export default function PanelEditor() {
     );
   };
 
-  const cursorStyle = constraintPlacement ? 'crosshair' : activeTool === 'move' ? 'default' : activeTool === 'ruler' ? 'crosshair' : 'crosshair';
+  const cursorStyle = constraintPlacement ? 'crosshair' : activeTool === 'pan' ? 'grab' : activeTool === 'move' ? 'default' : activeTool === 'ruler' ? 'crosshair' : 'crosshair';
+
+  // Computed cursor for child elements (elements, alignment handles)
+  const elementCursor = (activeTool === 'ruler' || activeTool === 'pan') ? cursorStyle : 'move';
+  // Whether elements should be non-interactive (ruler/pan mode)
+  const elementsPassive = activeTool === 'ruler' || activeTool === 'pan';
 
   // Ref for the outer scrollable wrapper — needed for native wheel listener
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Native wheel listener with { passive: false } so preventDefault actually blocks browser zoom
+  // Native wheel listener with { passive: false } — zoom toward cursor position
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      const wrapper = wrapperRef.current;
+      const panel = panelRef.current;
+      if (!wrapper || !panel) return;
+
+      const oldZoom = zoomLevelRef.current;
       const delta = -e.deltaY * 0.002;
-      setZoom(Math.round((zoomLevel + delta) * 100) / 100);
+      const newZoom = Math.max(0.25, Math.min(3, Math.round((oldZoom + delta) * 100) / 100));
+      if (newZoom === oldZoom) return;
+
+      // mm position under cursor on the panel
+      const panelRect = panel.getBoundingClientRect();
+      const mmX = (e.clientX - panelRect.left) / oldZoom;
+      const mmY = (e.clientY - panelRect.top) / oldZoom;
+
+      // cursor position relative to wrapper viewport
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const viewX = e.clientX - wrapperRect.left;
+      const viewY = e.clientY - wrapperRect.top;
+
+      pendingZoomAdjust.current = { mmX, mmY, viewX, viewY, newZoom };
+      zoomLevelRef.current = newZoom;
+      setZoom(newZoom);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [zoomLevel, setZoom]);
+  }, [setZoom]);
+
+  // After zoom re-render, adjust scroll so the mm-point stays under cursor
+  useLayoutEffect(() => {
+    const adj = pendingZoomAdjust.current;
+    if (!adj) return;
+    pendingZoomAdjust.current = null;
+
+    const wrapper = wrapperRef.current;
+    const panel = panelRef.current;
+    if (!wrapper || !panel) return;
+
+    const panelRect = panel.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const pointScreenX = panelRect.left + adj.mmX * adj.newZoom;
+    const pointScreenY = panelRect.top + adj.mmY * adj.newZoom;
+    const targetScreenX = wrapperRect.left + adj.viewX;
+    const targetScreenY = wrapperRect.top + adj.viewY;
+    wrapper.scrollLeft += pointScreenX - targetScreenX;
+    wrapper.scrollTop += pointScreenY - targetScreenY;
+  }, [zoomLevel]);
 
   // Scale bar: pick a nice round mm value that fits ~60-100px at current zoom
   const scaleBarMM = (() => {
@@ -634,17 +696,37 @@ export default function PanelEditor() {
   })();
   const scaleBarPx = scaleBarMM * zoomLevel;
 
+  // ─── Pan tool: drag-to-scroll the wrapper ───
+  const panning = useRef(false);
+  const panStart = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+
+  const handleWrapperDown = useCallback((e: React.MouseEvent) => {
+    if (activeTool !== 'pan') return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    panning.current = true;
+    panStart.current = { x: e.clientX, y: e.clientY, sl: wrapper.scrollLeft, st: wrapper.scrollTop };
+    wrapper.style.cursor = 'grabbing';
+
+    const onMove = (ev: MouseEvent) => {
+      if (!panStart.current || !wrapperRef.current) return;
+      wrapperRef.current.scrollLeft = panStart.current.sl - (ev.clientX - panStart.current.x);
+      wrapperRef.current.scrollTop = panStart.current.st - (ev.clientY - panStart.current.y);
+    };
+    const onUp = () => {
+      panning.current = false;
+      panStart.current = null;
+      if (wrapperRef.current) wrapperRef.current.style.cursor = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [activeTool]);
+
   return (
-    <div ref={wrapperRef} className="flex-1 overflow-auto bg-slate-50 flex items-center justify-center p-6 relative">
-      {/* Scale indicator — bottom right */}
-      <div className="absolute bottom-2 right-3 flex items-center gap-1 pointer-events-none z-10">
-        <div className="relative" style={{ width: scaleBarPx, height: 6 }}>
-          <div className="absolute inset-x-0 top-1/2 h-px bg-slate-400" />
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-slate-400" />
-          <div className="absolute right-0 top-0 bottom-0 w-px bg-slate-400" />
-        </div>
-        <span className="text-[9px] text-slate-400 font-mono">{scaleBarMM}mm</span>
-      </div>
+    <div className="flex-1 relative overflow-hidden">
+      <div ref={wrapperRef} className="absolute inset-0 overflow-auto bg-slate-50 flex p-6" style={{ justifyContent: 'safe center', alignItems: 'safe center', cursor: activeTool === 'pan' ? 'grab' : undefined }} onMouseDown={handleWrapperDown}>
 
       <div
         ref={panelRef}
@@ -675,8 +757,9 @@ export default function PanelEditor() {
           <div
             key={el.id}
             className={cn(
-              'panel-el absolute cursor-move flex items-center justify-center select-none',
-              elStyle(el.type),
+              'panel-el absolute flex items-center justify-center select-none',
+              elStyle(el.type, el.componentId),
+              el.componentId && COMPONENT_MAP[el.componentId]?.shape === 'circle' && 'rounded-full',
               isSelected(el.id) && 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white'
             )}
             style={{
@@ -684,12 +767,78 @@ export default function PanelEditor() {
               top: el.y * zoomLevel,
               width: el.w * zoomLevel,
               height: el.h * zoomLevel,
+              cursor: elementCursor,
+              ...(elementsPassive ? { pointerEvents: 'none' as const } : {}),
               ...(el.type === 'rect' && el.radius ? { borderRadius: el.radius * zoomLevel } : {}),
             }}
             onMouseDown={(e) => handleElDown(e, el.id)}
+            onDoubleClick={(e) => {
+              if (el.type === 'text') {
+                e.stopPropagation();
+                setEditingTextId(el.id);
+                setEditingTextValue(el.text || 'Label');
+                setTimeout(() => textInputRef.current?.focus(), 0);
+              }
+            }}
           >
             {/* Custom shape SVG */}
-            {el.type === 'custom' && el.pathData && el.pathViewBox ? (
+            {el.type === 'text' ? (
+              <>
+                {editingTextId === el.id ? (
+                  <input
+                    ref={textInputRef}
+                    className="absolute inset-0 w-full h-full bg-white border-none outline-none text-slate-700 font-medium text-center px-1"
+                    style={{ fontSize: (el.fontSize ?? 10) * zoomLevel, lineHeight: 1.1 }}
+                    value={editingTextValue}
+                    onChange={e => setEditingTextValue(e.target.value)}
+                    onBlur={() => {
+                      updateElementProp(el.id, 'text', editingTextValue);
+                      setEditingTextId(null);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        updateElementProp(el.id, 'text', editingTextValue);
+                        setEditingTextId(null);
+                      }
+                      if (e.key === 'Escape') setEditingTextId(null);
+                      e.stopPropagation();
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none select-none text-slate-700 font-medium overflow-hidden"
+                    style={{ fontSize: (el.fontSize ?? 10) * zoomLevel, lineHeight: 1.1 }}
+                  >
+                    {el.text || 'Label'}
+                  </span>
+                )}
+                {/* Anchor dot for text */}
+                {el.anchor && el.anchor !== 'center' ? (
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className={cn(
+                      'absolute w-2 h-2 rounded-full bg-white border-2 border-teal-600',
+                      el.anchor === 'top-left' && 'top-0.5 left-0.5',
+                      el.anchor === 'top-right' && 'top-0.5 right-0.5',
+                      el.anchor === 'bottom-left' && 'bottom-0.5 left-0.5',
+                      el.anchor === 'bottom-right' && 'bottom-0.5 right-0.5',
+                    )} />
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white border border-teal-600/60" />
+                  </div>
+                )}
+              </>
+            ) : el.componentId ? (
+              <>
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div className="w-1 h-1 rounded-full bg-white border border-rose-800/60" />
+                </div>
+                <span className="absolute left-full ml-1 top-1/2 -translate-y-1/2 text-[8px] font-medium text-rose-700 whitespace-nowrap pointer-events-none select-none">
+                  {COMPONENT_MAP[el.componentId]?.label ?? 'Component'}
+                </span>
+              </>
+            ) : el.type === 'custom' && el.pathData && el.pathViewBox ? (
               <svg
                 className="absolute inset-0 w-full h-full pointer-events-none"
                 viewBox={`${el.pathViewBox[0]} ${el.pathViewBox[1]} ${el.pathViewBox[2]} ${el.pathViewBox[3]}`}
@@ -714,8 +863,8 @@ export default function PanelEditor() {
                 <div className="w-1.5 h-1.5 rounded-full bg-white border border-slate-600/60" />
               </div>
             )}
-            {/* Resize handle */}
-            {isSelected(el.id) && selectedElIds.size === 1 && (
+            {/* Resize handle — not for components */}
+            {isSelected(el.id) && selectedElIds.size === 1 && !el.componentId && (
               <div
                 className="absolute -right-1.5 -bottom-1.5 w-3 h-3 bg-brand-500 rounded-sm cursor-se-resize border border-white"
                 onMouseDown={(e) => handleResizeDown(e, el.id)}
@@ -729,7 +878,7 @@ export default function PanelEditor() {
           <div
             key={`ah-${a.id}`}
             className={cn(
-              'absolute w-5 h-5 rounded-full cursor-move flex items-center justify-center',
+              'absolute w-5 h-5 rounded-full flex items-center justify-center',
               selectedAlignId === a.id
                 ? (a.type === 'align-circular' ? 'bg-purple-500 border-2 border-white shadow-lg' : 'bg-cyan-500 border-2 border-white shadow-lg')
                 : (a.type === 'align-circular' ? 'bg-purple-400/70 border border-purple-600' : 'bg-cyan-400/70 border border-cyan-600')
@@ -739,6 +888,8 @@ export default function PanelEditor() {
               top: a.y * zoomLevel,
               transform: 'translate(-50%, -50%)',
               zIndex: 40,
+              cursor: elementCursor,
+              ...(elementsPassive ? { pointerEvents: 'none' as const } : {}),
             }}
             onMouseDown={(e) => handleAlignDown(e, a.id)}
           >
@@ -830,6 +981,17 @@ export default function PanelEditor() {
             />
           </div>
         )}
+      </div>
+      </div>
+
+      {/* Scale indicator — fixed in bottom-right of visible area */}
+      <div className="absolute bottom-2 right-3 flex items-center gap-1 pointer-events-none z-10">
+        <div className="relative" style={{ width: scaleBarPx, height: 6 }}>
+          <div className="absolute inset-x-0 top-1/2 h-px bg-slate-400" />
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-slate-400" />
+          <div className="absolute right-0 top-0 bottom-0 w-px bg-slate-400" />
+        </div>
+        <span className="text-[9px] text-slate-400 font-mono">{scaleBarMM}mm</span>
       </div>
     </div>
   );

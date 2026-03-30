@@ -15,10 +15,12 @@ export function useKeyboardShortcuts() {
         return;
       }
       switch (e.key.toLowerCase()) {
-        case 'v': setTool('hole'); break;
-        case 'h': case 'r': setTool('rect'); break;
-        case 'o': setTool('opening'); break;
-        case 'm': setTool('move'); break;
+        case 'v': setTool('move'); break;
+        case 'p': setTool('pan'); break;
+        case 'h': setTool('hole'); break;
+        case 'r': setTool('rect'); break;
+        case 't': setTool('text'); break;
+        case 'm': setTool('ruler'); break;
         case 'delete': case 'backspace': deleteSelected(); break;
       }
     }

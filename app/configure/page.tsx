@@ -5,36 +5,38 @@ import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useConfiguratorStore } from '@/store/configurator-store';
 import { useCartStore } from '@/store/cart-store';
-import { CABINET_KEYS, SIDES, calcPrice, getPanelDimensions } from '@/lib/constants';
+import { CABINET_KEYS, SIDES, calcPrice, getPanelDimensions, COMPONENT_CATALOG, SHAPE_CATALOG } from '@/lib/constants';
 import type { CabinetKey, ToolType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
-import { exportProjectJSON, parseProjectFile, saveRecent, getRecentProjects, type ProjectFile } from '@/lib/project';
+import { exportProjectJSON, parseProjectFile, saveRecent, getRecentProjects, removeRecent, createProjectFile, type ProjectFile } from '@/lib/project';
 import { parseDxfToSvg } from '@/lib/dxf-to-svg';
+import { ELEMENT_DEFAULTS } from '@/lib/constants';
 import ConfigHeader from '@/components/configurator/config-header';
 import PanelEditor from '@/components/configurator/panel-editor';
 import DetailsPanel from '@/components/configurator/details-panel';
 import Toast from '@/components/configurator/toast';
 import { CartDrawer } from '@/components/cart/cart-drawer';
 import {
-  MousePointer2, Circle, Square, RectangleHorizontal,
+  MousePointer2, Circle, Square,
   Trash2, ShoppingCart,
-  ChevronDown, CircleDot, Grid3X3,
+  ChevronDown, ChevronRight, CircleDot, Grid3X3,
   FolderOpen, Download, FilePlus, Clock,
-  Ruler, Link, Upload,
+  Ruler, Link, Upload, Plug, Hand, Type, Shapes, Fan,
 } from 'lucide-react';
 
 const Cabinet3DScene = dynamic(() => import('@/components/configurator/cabinet-3d-scene'), { ssr: false });
 
 const TOOLS: { key: ToolType; label: string; shortcut: string; Icon: React.ComponentType<any> }[] = [
   { key: 'move', label: 'Select', shortcut: 'V', Icon: MousePointer2 },
+  { key: 'pan', label: 'Pan', shortcut: 'P', Icon: Hand },
   { key: 'hole', label: 'Hole', shortcut: 'H', Icon: Circle },
   { key: 'rect', label: 'Rect', shortcut: 'R', Icon: Square },
-  { key: 'opening', label: 'Opening', shortcut: 'O', Icon: RectangleHorizontal },
+  { key: 'text', label: 'Text', shortcut: 'T', Icon: Type },
   { key: 'ruler', label: 'Measure', shortcut: 'M', Icon: Ruler },
 ];
 
-const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 
 export default function ConfigurePage() {
   const searchParams = useSearchParams();
@@ -48,6 +50,7 @@ export default function ConfigurePage() {
   const deleteSelected = useConfiguratorStore(s => s.deleteSelected);
   const addAlignment = useConfiguratorStore(s => s.addAlignment);
   const addCustomElement = useConfiguratorStore(s => s.addCustomElement);
+  const addComponent = useConfiguratorStore(s => s.addComponent);
   const startConstraintPlacement = useConfiguratorStore(s => s.startConstraintPlacement);
   const cancelConstraintPlacement = useConfiguratorStore(s => s.cancelConstraintPlacement);
   const constraintPlacement = useConfiguratorStore(s => s.constraintPlacement);
@@ -63,9 +66,28 @@ export default function ConfigurePage() {
   const [alignMenuOpen, setAlignMenuOpen] = useState(false);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [constraintMenuOpen, setConstraintMenuOpen] = useState(false);
+  const [componentMenuOpen, setComponentMenuOpen] = useState(false);
+  const [shapeMenuOpen, setShapeMenuOpen] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [recentProjects, setRecentProjects] = useState<ProjectFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dxfInputRef = useRef<HTMLInputElement>(null);
+
+  const [projectName, setProjectName] = useState('Standard Design');
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
+  // Tool presets — dimensions before placing
+  const [holeDiameter, setHoleDiameter] = useState(ELEMENT_DEFAULTS.hole.diameter ?? 22);
+  const [rectW, setRectW] = useState(ELEMENT_DEFAULTS.rect.w);
+  const [rectH, setRectH] = useState(ELEMENT_DEFAULTS.rect.h);
+  const [labelText, setLabelText] = useState('Label');
+  const [labelFontSize, setLabelFontSize] = useState(10);
+
+  const toolOverrides = activeTool === 'hole' ? { diameter: holeDiameter }
+    : activeTool === 'rect' ? { w: rectW, h: rectH }
+    : activeTool === 'text' ? { text: labelText, fontSize: labelFontSize }
+    : undefined;
 
   useKeyboardShortcuts();
 
@@ -77,7 +99,16 @@ export default function ConfigurePage() {
   }, [searchParams, setCabinet]);
 
   useEffect(() => {
-    setRecentProjects(getRecentProjects());
+    const recent = getRecentProjects();
+    const hasStandard = recent.some(p => p.name === 'Standard Design');
+    if (!hasStandard) {
+      const std = createProjectFile('Standard Design', currentCabinet, sideElements);
+      saveRecent(std);
+      setRecentProjects(getRecentProjects());
+    } else {
+      setRecentProjects(recent);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleAddToCart() {
@@ -87,14 +118,28 @@ export default function ConfigurePage() {
     showToast(`Cabinet added to cart (${n} cutout${n !== 1 ? 's' : ''})`, '🛒');
   }
 
-  function handleNewProject() {
-    resetProject();
-    showToast('New project started', '📄');
+  function handleNewDesign() {
+    setNameInput('');
+    setShowNameDialog(true);
     setFileMenuOpen(false);
   }
 
+  function handleNameConfirm() {
+    const name = nameInput.trim() || 'Untitled Design';
+    resetProject();
+    setProjectName(name);
+    setShowNameDialog(false);
+    showToast(`New design "${name}" started`, '📄');
+  }
+
+  function handleRemoveRecent(e: React.MouseEvent, createdAt: string) {
+    e.stopPropagation();
+    removeRecent(createdAt);
+    setRecentProjects(getRecentProjects());
+  }
+
   function handleExportProject() {
-    const json = exportProjectJSON('Cabinet Project', currentCabinet, sideElements);
+    const json = exportProjectJSON(projectName, currentCabinet, sideElements);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -126,6 +171,7 @@ export default function ConfigurePage() {
         loadProjectState(project.cabinetKey, project.sideElements);
         saveRecent(project);
         setRecentProjects(getRecentProjects());
+        setProjectName(project.name);
         showToast(`Loaded: ${project.name}`, '📂');
       } catch {
         showToast('Invalid project file', '❌');
@@ -137,6 +183,7 @@ export default function ConfigurePage() {
 
   function handleLoadRecent(project: ProjectFile) {
     loadProjectState(project.cabinetKey, project.sideElements);
+    setProjectName(project.name);
     showToast(`Loaded: ${project.name}`, '📂');
     setFileMenuOpen(false);
   }
@@ -173,6 +220,8 @@ export default function ConfigurePage() {
     setFileMenuOpen(false);
     setAlignMenuOpen(false);
     setConstraintMenuOpen(false);
+    setComponentMenuOpen(false);
+    setShapeMenuOpen(false);
   }
 
   return (
@@ -223,7 +272,7 @@ export default function ConfigurePage() {
             {/* File menu */}
             <div className="relative">
               <button
-                onClick={() => { setFileMenuOpen(!fileMenuOpen); setAlignMenuOpen(false); setConstraintMenuOpen(false); }}
+                onClick={() => { const open = !fileMenuOpen; closeMenus(); setFileMenuOpen(open); }}
                 title="File"
                 className={cn(
                   'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
@@ -235,9 +284,9 @@ export default function ConfigurePage() {
                 <ChevronDown className={cn('h-3 w-3 transition-transform', fileMenuOpen && 'rotate-180')} />
               </button>
               {fileMenuOpen && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
-                  <button onClick={handleNewProject} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
-                    <FilePlus className="h-3.5 w-3.5" /> New Project
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
+                  <button onClick={handleNewDesign} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
+                    <FilePlus className="h-3.5 w-3.5" /> New Design
                   </button>
                   <div className="h-px bg-slate-100 my-1" />
                   <button onClick={handleOpenProject} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
@@ -248,16 +297,21 @@ export default function ConfigurePage() {
                   </button>
                   <div className="h-px bg-slate-100 my-1" />
                   <button onClick={handleImportDxf} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
-                    <Upload className="h-3.5 w-3.5" /> Import Custom Shape (.dxf)
+                    <Upload className="h-3.5 w-3.5" /> Custom Shape (.dxf)
                   </button>
                   {recentProjects.length > 0 && (
                     <>
                       <div className="h-px bg-slate-100 my-1" />
                       <div className="px-3 py-1 text-[10px] text-slate-400 font-medium uppercase tracking-wider">Recent</div>
                       {recentProjects.slice(0, 5).map((p, i) => (
-                        <button key={i} onClick={() => handleLoadRecent(p)} className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition">
-                          <Clock className="h-3 w-3 shrink-0" /> <span className="truncate">{p.name}</span>
-                        </button>
+                        <div key={i} className="flex items-center hover:bg-slate-50 transition group">
+                          <button onClick={() => handleLoadRecent(p)} className="flex-1 flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 transition min-w-0">
+                            <Clock className="h-3 w-3 shrink-0" /> <span className="truncate">{p.name}</span>
+                          </button>
+                          <button onClick={(e) => handleRemoveRecent(e, p.createdAt)} className="px-2 py-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition" title="Remove">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       ))}
                     </>
                   )}
@@ -286,34 +340,10 @@ export default function ConfigurePage() {
 
             <div className="w-px h-5 bg-slate-200 mx-1" />
 
-            {/* Zoom */}
-            <select
-              value={String(zoomLevel)}
-              onChange={e => setZoom(Number(e.target.value))}
-              className="h-7 text-[11px] border border-slate-200 rounded px-1.5 bg-white focus:ring-1 focus:ring-brand-500 outline-none"
-            >
-              {ZOOM_LEVELS.map(z => (
-                <option key={z} value={String(z)}>{Math.round(z * 100)}%</option>
-              ))}
-            </select>
-
-            <div className="w-px h-5 bg-slate-200 mx-1" />
-
-            {/* Delete selected */}
-            <button
-              onClick={deleteSelected}
-              title="Delete selected (Del)"
-              className="h-7 px-2 flex items-center text-[11px] text-slate-500 hover:bg-slate-100 rounded transition"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-
-            <div className="w-px h-5 bg-slate-200 mx-1" />
-
             {/* Alignment dropdown — adds alignment entities */}
             <div className="relative">
               <button
-                onClick={() => { setAlignMenuOpen(!alignMenuOpen); setFileMenuOpen(false); setConstraintMenuOpen(false); }}
+                onClick={() => { const open = !alignMenuOpen; closeMenus(); setAlignMenuOpen(open); }}
                 title="Alignment"
                 className={cn(
                   'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
@@ -325,7 +355,7 @@ export default function ConfigurePage() {
                 <ChevronDown className={cn('h-3 w-3 transition-transform', alignMenuOpen && 'rotate-180')} />
               </button>
               {alignMenuOpen && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
                   <button
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
                     onClick={() => {
@@ -357,7 +387,7 @@ export default function ConfigurePage() {
             {/* Constraint dropdown */}
             <div className="relative">
               <button
-                onClick={() => { setConstraintMenuOpen(!constraintMenuOpen); setFileMenuOpen(false); setAlignMenuOpen(false); }}
+                onClick={() => { const open = !constraintMenuOpen; closeMenus(); setConstraintMenuOpen(open); }}
                 title="Constraint"
                 className={cn(
                   'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
@@ -369,17 +399,8 @@ export default function ConfigurePage() {
                 <span className="hidden">{constraintPlacement ? (constraintPlacement.step === 'pick-from' ? 'Pick From…' : constraintPlacement.step === 'pick-to' ? 'Pick To…' : 'Pick Element…') : 'Constraint'}</span>
                 {!constraintPlacement && <ChevronDown className={cn('h-3 w-3 transition-transform', constraintMenuOpen && 'rotate-180')} />}
               </button>
-              {constraintPlacement && (
-                <button
-                  onClick={() => cancelConstraintPlacement()}
-                  className="h-7 px-1.5 text-[11px] text-orange-600 hover:bg-orange-50 rounded transition ml-0.5"
-                  title="Cancel placement"
-                >
-                  ✕
-                </button>
-              )}
               {constraintMenuOpen && !constraintPlacement && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 min-w-[200px]">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 min-w-[200px]">
                   <button
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
                     onClick={() => { startConstraintPlacement('distance'); setConstraintMenuOpen(false); }}
@@ -397,11 +418,190 @@ export default function ConfigurePage() {
                 </div>
               )}
             </div>
+
+            <div className="w-px h-5 bg-slate-200 mx-1" />
+
+            {/* Components dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => { const open = !componentMenuOpen; closeMenus(); setComponentMenuOpen(open); }}
+                title="Components"
+                className={cn(
+                  'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
+                  componentMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:bg-slate-100'
+                )}
+              >
+                <Plug className="h-3.5 w-3.5" />
+                <span className="hidden">Components</span>
+                <ChevronDown className={cn('h-3 w-3 transition-transform', componentMenuOpen && 'rotate-180')} />
+              </button>
+              {componentMenuOpen && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 min-w-[220px] max-h-[420px] overflow-y-auto">
+                  {['M8', 'M12', 'Power'].map(cat => {
+                    const items = COMPONENT_CATALOG.filter(c => c.category === cat);
+                    if (items.length === 0) return null;
+                    const isExpanded = expandedCategory === cat;
+                    return (
+                      <div key={cat}>
+                        <button
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition font-medium"
+                          onClick={() => setExpandedCategory(isExpanded ? null : cat)}
+                        >
+                          {isExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+                          <span>{cat}</span>
+                          <span className="ml-auto text-[10px] text-slate-400">{items.length}</span>
+                        </button>
+                        {isExpanded && items.map(comp => (
+                          <button
+                            key={comp.id}
+                            className="w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
+                            onClick={() => { addComponent(comp.id); setComponentMenuOpen(false); setExpandedCategory(null); showToast(`Added ${comp.label}`, '🔌'); }}
+                          >
+                            {comp.shape === 'circle' ? <Circle className="h-3 w-3 shrink-0" /> : <Square className="h-3 w-3 shrink-0" />}
+                            <span className="truncate">{comp.label}</span>
+                            <span className="ml-auto text-[10px] text-slate-400 shrink-0">€{comp.price.toFixed(2)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="w-px h-5 bg-slate-200 mx-1" />
+
+            {/* Shapes dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => { const open = !shapeMenuOpen; closeMenus(); setShapeMenuOpen(open); }}
+                title="Shapes"
+                className={cn(
+                  'h-7 px-2 flex items-center gap-1 text-[11px] rounded transition-colors',
+                  shapeMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:bg-slate-100'
+                )}
+              >
+                <Shapes className="h-3.5 w-3.5" />
+                <span className="hidden">Shapes</span>
+                <ChevronDown className={cn('h-3 w-3 transition-transform', shapeMenuOpen && 'rotate-180')} />
+              </button>
+              {shapeMenuOpen && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 min-w-[200px]">
+                  {SHAPE_CATALOG.map(shape => (
+                    <button
+                      key={shape.id}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-600 hover:bg-slate-50 transition"
+                      onClick={() => {
+                        addCustomElement(shape.pathData, shape.viewBox, shape.w, shape.h);
+                        setShapeMenuOpen(false);
+                        showToast(`Added ${shape.label}`, '💨');
+                      }}
+                    >
+                      <Fan className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{shape.label}</span>
+                      <span className="ml-auto text-[10px] text-slate-400 shrink-0">€{shape.price.toFixed(2)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Sub-toolbar — tool options + zoom + delete */}
+          <div className="relative z-20 flex items-center gap-2 px-4 py-1 border-b border-slate-200 bg-slate-50 shrink-0">
+            {constraintPlacement ? (
+              <>
+                <Link className="h-3.5 w-3.5 text-orange-500" />
+                <span className="text-[10px] text-orange-600 font-medium">
+                  {constraintPlacement.type === 'diameter' ? 'Diameter' : 'Distance'}:
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {constraintPlacement.step === 'pick-from' ? 'Click element or border as start reference'
+                    : constraintPlacement.step === 'pick-to' ? 'Click target element'
+                    : 'Click a circular element'}
+                </span>
+                <button
+                  onClick={() => cancelConstraintPlacement()}
+                  className="h-6 px-2 text-[11px] text-orange-600 hover:bg-orange-100 border border-orange-200 rounded transition"
+                >
+                  Cancel <span className="text-[9px] text-orange-400 ml-0.5">Esc</span>
+                </button>
+              </>
+            ) : activeTool === 'hole' ? (
+              <>
+                <span className="text-[10px] text-slate-400">Diameter</span>
+                <input
+                  type="number" min={5} step={1} value={holeDiameter}
+                  onChange={e => { const v = Number(e.target.value); if (!isNaN(v) && v >= 5) setHoleDiameter(v); }}
+                  className="w-16 h-6 text-[11px] px-1.5 border border-slate-200 rounded bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                />
+                <span className="text-[10px] text-slate-400">mm</span>
+              </>
+            ) : activeTool === 'rect' ? (
+              <>
+                <span className="text-[10px] text-slate-400">W</span>
+                <input
+                  type="number" min={5} step={1} value={rectW}
+                  onChange={e => { const v = Number(e.target.value); if (!isNaN(v) && v >= 5) setRectW(v); }}
+                  className="w-14 h-6 text-[11px] px-1.5 border border-slate-200 rounded bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                />
+                <span className="text-[10px] text-slate-400">×</span>
+                <span className="text-[10px] text-slate-400">H</span>
+                <input
+                  type="number" min={5} step={1} value={rectH}
+                  onChange={e => { const v = Number(e.target.value); if (!isNaN(v) && v >= 5) setRectH(v); }}
+                  className="w-14 h-6 text-[11px] px-1.5 border border-slate-200 rounded bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                />
+                <span className="text-[10px] text-slate-400">mm</span>
+              </>
+            ) : activeTool === 'text' ? (
+              <>
+                <span className="text-[10px] text-slate-400">Text</span>
+                <input
+                  type="text" value={labelText}
+                  onChange={e => setLabelText(e.target.value)}
+                  className="w-28 h-6 text-[11px] px-1.5 border border-slate-200 rounded bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                  placeholder="Label text…"
+                />
+                <span className="text-[10px] text-slate-400">Size</span>
+                <input
+                  type="number" min={5} max={40} step={1} value={labelFontSize}
+                  onChange={e => { const v = Number(e.target.value); if (!isNaN(v) && v >= 5 && v <= 40) setLabelFontSize(v); }}
+                  className="w-12 h-6 text-[11px] px-1.5 border border-slate-200 rounded bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                />
+                <span className="text-[10px] text-slate-400">mm</span>
+              </>
+            ) : null}
+
+            <div className="flex-1" />
+
+            {/* Zoom */}
+            <select
+              value={String(zoomLevel)}
+              onChange={e => setZoom(Number(e.target.value))}
+              className="h-7 text-[11px] border border-slate-200 rounded px-1.5 bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+            >
+              {ZOOM_LEVELS.map(z => (
+                <option key={z} value={String(z)}>{Math.round(z * 100)}%</option>
+              ))}
+            </select>
+
+            <div className="w-px h-5 bg-slate-200 mx-1" />
+
+            {/* Delete selected */}
+            <button
+              onClick={deleteSelected}
+              title="Delete selected (Del)"
+              className="h-7 px-2 flex items-center text-[11px] text-slate-500 hover:bg-slate-100 rounded transition"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           {/* Panel editor */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative z-0">
-            <PanelEditor />
+            <PanelEditor toolOverrides={toolOverrides} />
           </div>
         </div>
 
@@ -431,11 +631,32 @@ export default function ConfigurePage() {
 
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileSelected} />
       <input ref={dxfInputRef} type="file" accept=".dxf" className="hidden" onChange={handleDxfSelected} />
-      {(fileMenuOpen || alignMenuOpen || constraintMenuOpen) && (
+      {(fileMenuOpen || alignMenuOpen || constraintMenuOpen || componentMenuOpen || shapeMenuOpen) && (
         <div className="fixed inset-0 z-10" onClick={closeMenus} />
       )}
       <Toast />
       <CartDrawer />
+
+      {/* Name dialog */}
+      {showNameDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowNameDialog(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-5 w-80" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">New Design</h3>
+            <input
+              autoFocus
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleNameConfirm(); if (e.key === 'Escape') setShowNameDialog(false); }}
+              placeholder="Enter design name…"
+              className="w-full h-8 text-sm px-3 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none mb-3"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowNameDialog(false)} className="h-8 px-3 text-xs text-slate-500 hover:bg-slate-100 rounded transition">Cancel</button>
+              <button onClick={handleNameConfirm} className="h-8 px-4 text-xs font-medium bg-brand-600 text-white rounded hover:bg-brand-700 transition">Create</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

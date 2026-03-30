@@ -1,7 +1,7 @@
 export type Side = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
-export type ElementType = 'hole' | 'rect' | 'opening' | 'custom';
+export type ElementType = 'hole' | 'rect' | 'custom' | 'text';
 export type AnchorPoint = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
-export type ToolType = 'move' | 'ruler' | ElementType;
+export type ToolType = 'move' | 'pan' | 'ruler' | ElementType;
 export type CabinetKey = 'compact' | 'standard' | 'large' | 'industrial';
 
 export interface AlignmentElement {
@@ -40,6 +40,12 @@ export interface PanelElement {
   pathData?: string;
   /** Original viewBox of the custom shape [minX, minY, width, height] */
   pathViewBox?: [number, number, number, number];
+  /** Component catalog ID — fixed-size, no resize */
+  componentId?: string;
+  /** Text content for label elements */
+  text?: string;
+  /** Font size in mm for text labels */
+  fontSize?: number;
 }
 
 export type SideElements = Record<Side, PanelElement[]>;

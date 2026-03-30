@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { CabinetKey, Side, ToolType, ElementType, PanelElement, SideElements, AlignmentElement, Constraint, SideConstraints, BorderRef, ConstraintType, ConstraintPlacement } from '@/lib/types';
-import { SIDES, ELEMENT_DEFAULTS, MAX_UNDO, snap, calcPrice, getAlignSnapPoints } from '@/lib/constants';
+import { SIDES, ELEMENT_DEFAULTS, MAX_UNDO, snap, calcPrice, getAlignSnapPoints, COMPONENT_MAP } from '@/lib/constants';
 
 function emptySideElements(): SideElements {
   return Object.fromEntries(SIDES.map(s => [s, []])) as SideElements;
@@ -56,8 +56,9 @@ interface ConfiguratorStore {
   selectElement: (id: number | null) => void;
   toggleSelectElement: (id: number) => void;
   setSelectedElIds: (ids: Set<number>) => void;
-  addElement: (type: ElementType, x: number, y: number, cw: number, ch: number) => void;
+  addElement: (type: ElementType, x: number, y: number, cw: number, ch: number, overrides?: { w?: number; h?: number; diameter?: number; text?: string; fontSize?: number }) => void;
   addCustomElement: (pathData: string, pathViewBox: [number, number, number, number], w: number, h: number) => void;
+  addComponent: (componentId: string) => void;
   moveElement: (id: number, x: number, y: number, exact?: boolean) => void;
   moveSelectedElements: (dx: number, dy: number, pw: number, ph: number) => void;
   resizeElement: (id: number, w: number, h: number) => void;
@@ -133,15 +134,23 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   }),
   setSelectedElIds: (ids) => set({ selectedElIds: ids, selectedElId: ids.size > 0 ? [...ids][0] : null, selectedAlignId: null }),
 
-  addElement: (type, clickX, clickY, canvasW, canvasH) => {
+  addElement: (type, clickX, clickY, canvasW, canvasH, overrides) => {
     const state = get();
-    const d = ELEMENT_DEFAULTS[type];
+    const base = { ...ELEMENT_DEFAULTS[type], ...overrides };
+    // For holes: if diameter was overridden, scale the bounding box proportionally
+    if (type === 'hole' && overrides?.diameter) {
+      const scale = overrides.diameter / (ELEMENT_DEFAULTS.hole.diameter ?? 22);
+      base.w = Math.round(ELEMENT_DEFAULTS.hole.w * scale);
+      base.h = base.w;
+    }
+    const d = base;
     const x = snap(Math.max(0, Math.min(canvasW - d.w, clickX - d.w / 2)));
     const y = snap(Math.max(0, Math.min(canvasH - d.h, clickY - d.h / 2)));
     const newEl: PanelElement = {
       id: state.nextId, type, x, y, w: d.w, h: d.h,
       ...(type === 'hole' ? { diameter: d.diameter } : {}),
       ...(type === 'rect' ? { anchor: 'center' as const, radius: 3 } : {}),
+      ...(type === 'text' ? { text: (overrides as any)?.text || 'Label', fontSize: (overrides as any)?.fontSize || 10, anchor: 'center' as const } : {}),
     };
     const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
     const newElements = { ...state.sideElements };
@@ -161,6 +170,27 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     const newEl: PanelElement = {
       id: state.nextId, type: 'custom', x, y, w, h,
       pathData, pathViewBox,
+    };
+    const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
+    const newElements = { ...state.sideElements };
+    newElements[state.currentSide] = [...newElements[state.currentSide], newEl];
+    set({
+      sideElements: newElements, selectedElId: state.nextId,
+      selectedElIds: new Set([state.nextId]), selectedAlignId: null,
+      nextId: state.nextId + 1, undoStack, redoStack: [],
+      price: calcPrice(state.currentCabinet, newElements),
+    });
+  },
+
+  addComponent: (componentId) => {
+    const def = COMPONENT_MAP[componentId];
+    if (!def) return;
+    const state = get();
+    const newEl: PanelElement = {
+      id: state.nextId, type: def.shape === 'circle' ? 'hole' : 'rect',
+      x: snap(10), y: snap(10), w: def.w, h: def.h,
+      ...(def.cutoutDiameter ? { diameter: def.cutoutDiameter } : {}),
+      componentId,
     };
     const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
     const newElements = { ...state.sideElements };
@@ -624,7 +654,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     return { cartItems: state.cartItems + 1, toastMessage: `Cabinet added to cart (${n} cutout${n !== 1 ? 's' : ''})`, toastIcon: '🛒' };
   }),
 
-  setZoom: (level) => set({ zoomLevel: Math.max(0.4, Math.min(2, level)) }),
+  setZoom: (level) => set({ zoomLevel: Math.max(0.25, Math.min(3, level)) }),
   showToast: (msg, icon = '✓') => set({ toastMessage: msg, toastIcon: icon }),
   clearToast: () => set({ toastMessage: null }),
   sideHasEdits: (side) => { const s = get(); return s.sideElements[side].length > 0 || s.sideAlignments[side].length > 0 || s.sideConstraints[side].length > 0; },
