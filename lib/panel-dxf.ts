@@ -30,6 +30,10 @@ export function exportPanelDxf(
   lines.push('0', 'SECTION', '2', 'HEADER');
   lines.push('9', '$ACADVER', '1', 'AC1015');
   lines.push('9', '$INSUNITS', '70', '4'); // mm
+  lines.push('9', '$MEASUREMENT', '70', '1'); // metric
+  lines.push('9', '$LUNITS', '70', '2'); // decimal
+  lines.push('9', '$EXTMIN', '10', '0.0', '20', '0.0', '30', '0.0');
+  lines.push('9', '$EXTMAX', '10', fmt(panelWidth), '20', fmt(panelHeight), '30', '0.0');
   lines.push('0', 'ENDSEC');
 
   // ── Tables (layers) ──
@@ -68,7 +72,7 @@ export function exportPanelDxf(
       case 'hole': {
         const cx = el.x + el.w / 2;
         const cy = el.y + el.h / 2;
-        const r = (el.diameter ?? Math.round(el.w * 22 / 36)) / 2;
+        const r = (el.diameter ?? el.w) / 2;
         pushCircle(lines, h(), 'HOLES', cx, dy(cy), r);
         break;
       }
@@ -230,7 +234,7 @@ export function importPanelDxf(dxfString: string): {
       const cy: number = e.center.y;
       const r: number = e.radius;
       const diameter = Math.round(r * 2);
-      const w = Math.round(diameter * 36 / 22);
+      const w = diameter;
       elements.push({
         type: 'hole',
         x: Math.round(cx - w / 2),
@@ -313,7 +317,7 @@ export function importPanelDxf(dxfString: string): {
         const cy: number = e.center.y;
         const r: number = e.radius;
         const diameter = Math.round(r * 2);
-        const w = Math.round(diameter * 36 / 22);
+        const w = diameter;
         elements.push({
           type: 'hole',
           x: Math.round(cx - w / 2),

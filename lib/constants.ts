@@ -39,7 +39,7 @@ export const ELEMENT_PRICES: Record<string, number> = {
 };
 
 export const ELEMENT_DEFAULTS: Record<string, { w: number; h: number; diameter?: number }> = {
-  hole: { w: 36, h: 36, diameter: 22 },
+  hole: { w: 22, h: 22, diameter: 22 },
   rect: { w: 80, h: 40 },
   text: { w: 60, h: 16 },
 };

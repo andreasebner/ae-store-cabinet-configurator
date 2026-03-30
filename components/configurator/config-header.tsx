@@ -42,6 +42,12 @@ export default function ConfigHeader() {
       {/* Spacer */}
       <div className="flex-1" />
 
+      {/* Brand */}
+      <span className="text-sm font-semibold text-slate-700 tracking-tight">YourCabinet Configurator</span>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
       {/* Undo/Redo */}
       <div className="flex items-center gap-1">
         <button onClick={undo} disabled={undoStack.length === 0} className="flex items-center gap-1 px-2.5 py-1.5 rounded text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition" title="Undo (Ctrl+Z)">

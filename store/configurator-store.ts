@@ -140,8 +140,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     const base = { ...ELEMENT_DEFAULTS[type], ...overrides };
     // For holes: if diameter was overridden, scale the bounding box proportionally
     if (type === 'hole' && overrides?.diameter) {
-      const scale = overrides.diameter / (ELEMENT_DEFAULTS.hole.diameter ?? 22);
-      base.w = Math.round(ELEMENT_DEFAULTS.hole.w * scale);
+      base.w = overrides.diameter;
       base.h = base.w;
     }
     const d = base;
@@ -230,7 +229,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       if (el.id !== id) return el;
       if (el.type === 'hole') {
         const d = Math.max(10, snap(Math.max(w, h)));
-        return { ...el, w: d, h: d, diameter: Math.round(d * 22 / 36) };
+        return { ...el, w: d, h: d, diameter: d };
       }
       return { ...el, w: Math.max(10, snap(w)), h: Math.max(10, snap(h)) };
     });
@@ -243,7 +242,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     newElements[state.currentSide] = newElements[state.currentSide].map(el => {
       if (el.id !== id) return el;
       const u = { ...el, [prop]: value };
-      if (prop === 'diameter' && el.type === 'hole') { const v = Number(value); u.w = Math.round(v * 36 / 22); u.h = u.w; }
+      if (prop === 'diameter' && el.type === 'hole') { const v = Number(value); u.w = v; u.h = v; }
       if (prop === 'radius' && el.type === 'rect') { u.radius = Math.max(3, Number(value)); }
       return u;
     });
@@ -495,7 +494,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
         const el = { ...sideEls[elIdx] };
         if (el.type === 'hole') {
           el.diameter = Math.round(c.value);
-          el.w = Math.round(c.value * 36 / 22);
+          el.w = Math.round(c.value);
           el.h = el.w;
         }
         sideEls[elIdx] = el;
@@ -576,7 +575,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       const undoStack = [...state.undoStack, cloneSnapshot(state.sideElements, state.sideAlignments, state.snaps, state.sideConstraints)].slice(-MAX_UNDO);
       const c: Constraint = {
         id: state.nextId, constraintType: 'diameter',
-        fromRef: ref, toRef: ref, axis: 'x', value: el.diameter ?? Math.round(el.w * 22 / 36),
+        fromRef: ref, toRef: ref, axis: 'x', value: el.diameter ?? el.w,
       };
       const newConstraints = { ...state.sideConstraints };
       newConstraints[side] = [...newConstraints[side], c];

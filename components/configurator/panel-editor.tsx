@@ -515,7 +515,7 @@ export default function PanelEditor({ toolOverrides }: PanelEditorProps) {
     if (c.constraintType === 'diameter') {
       const cx = (toEl.x + toEl.w / 2) * z;
       const cy = (toEl.y + toEl.h / 2) * z;
-      const r = ((toEl.diameter ?? Math.round(toEl.w * 22 / 36)) / 2) * z * 36 / 22;
+      const r = ((toEl.diameter ?? toEl.w) / 2) * z;
       const color = isSel ? '#f97316' : '#94a3b8';
       // Draw a diameter line from left to right through center
       const x1 = cx - r;

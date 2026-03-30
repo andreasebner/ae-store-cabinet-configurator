@@ -259,7 +259,7 @@ export default function DetailsPanel() {
               {el.type === 'hole' && !el.componentId ? (
                 <div className="col-span-2">
                   <label className="text-[10px] text-slate-400 block mb-0.5">Diameter (mm)</label>
-                  <input type="number" step={1} min={5} value={el.diameter ?? Math.round(el.w * 22 / 36)}
+                  <input type="number" step={1} min={5} value={el.diameter ?? el.w}
                     onChange={e => handleChange('diameter', e.target.value)}
                     className="w-full h-7 text-xs px-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 outline-none" />
                 </div>
@@ -397,7 +397,7 @@ export default function DetailsPanel() {
                           {typeIcon(item.type, 'h-3 w-3', item.componentId)}
                           <span className="capitalize truncate">{item.componentId ? (COMPONENT_MAP[item.componentId]?.label ?? 'Component') : item.type}</span>
                           <span className="ml-auto font-mono text-[9px] text-slate-400 shrink-0">
-                            {item.type === 'hole' ? `⌀${item.diameter ?? Math.round(item.w * 22 / 36)}` : `${item.x},${item.y}`}
+                            {item.type === 'hole' ? `⌀${item.diameter ?? item.w}` : `${item.x},${item.y}`}
                           </span>
                         </button>
                       ))}
@@ -462,7 +462,7 @@ export default function DetailsPanel() {
                   {typeIcon(item.type, undefined, item.componentId)}
                   <span className="capitalize truncate">{item.componentId ? (COMPONENT_MAP[item.componentId]?.label ?? 'Component') : item.type}</span>
                   <span className="ml-auto font-mono text-[10px] text-slate-400 shrink-0">
-                    {item.componentId ? `${item.x},${item.y}` : item.type === 'hole' ? `⌀${item.diameter ?? Math.round(item.w * 22 / 36)}` : `${item.x},${item.y}`}
+                    {item.componentId ? `${item.x},${item.y}` : item.type === 'hole' ? `⌀${item.diameter ?? item.w}` : `${item.x},${item.y}`}
                   </span>
                 </button>
               ))}
