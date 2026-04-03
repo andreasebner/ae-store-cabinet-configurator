@@ -113,6 +113,41 @@ export const authApi = {
   getSession(): Customer | null {
     return read<Customer | null>(SESSION_KEY, null);
   },
+
+  /** Update profile fields (mock). */
+  updateProfile(updates: Partial<Omit<Customer, 'id' | 'createdAt'>>): Customer {
+    const session = this.getSession();
+    if (!session) throw new Error('Not logged in.');
+    const customers = read<(Customer & { password: string })[]>(CUSTOMERS_KEY, []);
+    const idx = customers.findIndex(c => c.id === session.id);
+    if (idx === -1) throw new Error('Account not found.');
+    Object.assign(customers[idx], updates);
+    write(CUSTOMERS_KEY, customers);
+    const { password: _, ...safe } = customers[idx];
+    write(SESSION_KEY, safe);
+    return safe;
+  },
+
+  /** Change password (mock). */
+  changePassword(currentPassword: string, newPassword: string): void {
+    const session = this.getSession();
+    if (!session) throw new Error('Not logged in.');
+    const customers = read<(Customer & { password: string })[]>(CUSTOMERS_KEY, []);
+    const cust = customers.find(c => c.id === session.id);
+    if (!cust) throw new Error('Account not found.');
+    if (cust.password !== currentPassword) throw new Error('Current password is incorrect.');
+    cust.password = newPassword;
+    write(CUSTOMERS_KEY, customers);
+  },
+
+  /** Delete account (mock). */
+  deleteAccount(): void {
+    const session = this.getSession();
+    if (!session) return;
+    const customers = read<(Customer & { password: string })[]>(CUSTOMERS_KEY, []).filter(c => c.id !== session.id);
+    write(CUSTOMERS_KEY, customers);
+    this.logout();
+  },
 };
 
 /* ═══════════════════════════════════════

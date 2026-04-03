@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef, useCallback, useState, useEffect, useLayoutEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useConfiguratorStore } from '@/store/configurator-store';
-import { getPanelDimensions, snap, SNAP_GRID, getAlignSnapPoints, SNAP_THRESHOLD, COMPONENT_MAP } from '@/lib/constants';
+import { getPanelDimensions, snap, SNAP_GRID, getAlignSnapPoints, SNAP_THRESHOLD, COMPONENT_MAP, CABINETS } from '@/lib/constants';
+import { generatePanelOutline } from '@/lib/panel-outline';
 import type { ElementType, AlignmentElement, Constraint, BorderRef } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -87,6 +88,13 @@ export default function PanelEditor({ toolOverrides }: PanelEditorProps) {
   const els = currentElements();
   const aligns = currentAlignments();
   const constraints = currentConstraints();
+
+  // Panel outline (cuttable area, exclusion zones)
+  const outline = useMemo(() => {
+    const cab = CABINETS[currentCabinet];
+    const sideOverride = cab.sideOutlineOverrides?.[currentSide];
+    return generatePanelOutline(pw, ph, { ...cab.outlineConfig, ...sideOverride });
+  }, [pw, ph, currentCabinet, currentSide]);
 
   // Check if a snap point is occupied
   const isSnapOccupied = useCallback((alignId: number, snapIdx: number, excludeElId?: number) => {
@@ -730,7 +738,7 @@ export default function PanelEditor({ toolOverrides }: PanelEditorProps) {
 
       <div
         ref={panelRef}
-        className="relative bg-white shadow-lg border-2 border-slate-200 rounded-sm grid-dots shrink-0"
+        className="relative bg-white shadow-lg grid-dots shrink-0"
         style={{
           width: pw * zoomLevel,
           height: ph * zoomLevel,
@@ -740,6 +748,30 @@ export default function PanelEditor({ toolOverrides }: PanelEditorProps) {
         onClick={handlePanelClick}
         onMouseDown={handlePanelDown}
       >
+        {/* Panel outline overlay */}
+        <svg
+          className="absolute inset-0 pointer-events-none"
+          width={pw * zoomLevel}
+          height={ph * zoomLevel}
+          viewBox={`0 0 ${pw} ${ph}`}
+          style={{ zIndex: 1 }}
+        >
+          <defs>
+            <pattern id="excl-hatch" width={4} height={4} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1={0} y1={0} x2={0} y2={4} stroke="#94a3b8" strokeWidth={0.5} />
+            </pattern>
+          </defs>
+          {/* Non-cuttable overlay (margin + exclusion zones) */}
+          <path d={outline.overlayPath} fill="rgba(226,232,240,0.7)" fillRule="evenodd" />
+          {/* Panel boundary stroke */}
+          <path d={outline.boundaryPath} fill="none" stroke="#94a3b8" strokeWidth={1.2} />
+          {/* Cuttable area dashed border */}
+          <path d={outline.cuttablePath} fill="none" stroke="#64748b" strokeWidth={0.5} strokeDasharray="4,3" />
+          {/* Exclusion zone hatching */}
+          {outline.exclusionPaths.map((p, i) => (
+            <path key={i} d={p} fill="url(#excl-hatch)" fillOpacity={0.4} />
+          ))}
+        </svg>
         {/* Grid lines */}
         {Array.from({ length: Math.floor(pw / 50) }).map((_, i) => (
           <div key={`v${i}`} className="absolute top-0 bottom-0 w-px bg-slate-200/60 pointer-events-none" style={{ left: (i + 1) * 50 * zoomLevel }} />

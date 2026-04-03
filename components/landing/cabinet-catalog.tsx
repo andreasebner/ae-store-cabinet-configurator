@@ -6,10 +6,10 @@ import { ArrowRight, Ruler, Shield, Zap } from 'lucide-react';
 import { CABINETS, CABINET_KEYS } from '@/lib/constants';
 
 const features: Record<string, { icon: typeof Shield; label: string }[]> = {
-  compact:    [{ icon: Shield, label: 'IP66' }, { icon: Zap, label: 'Powder-coated' }],
-  standard:   [{ icon: Shield, label: 'IP66' }, { icon: Zap, label: 'Powder-coated' }, { icon: Ruler, label: 'DIN rail ready' }],
-  large:      [{ icon: Shield, label: 'IP66' }, { icon: Zap, label: 'Powder-coated' }, { icon: Ruler, label: 'Multi-rail' }],
-  industrial: [{ icon: Shield, label: 'IP66' }, { icon: Zap, label: 'Stainless steel' }, { icon: Ruler, label: 'Heavy duty' }],
+  compact:    [{ icon: Shield, label: 'IP65' }, { icon: Zap, label: 'ABS halogen-free' }, { icon: Ruler, label: 'IK10' }],
+  standard:   [{ icon: Shield, label: 'IP65' }, { icon: Zap, label: 'ABS halogen-free' }, { icon: Ruler, label: 'Transparent door' }],
+  large:      [{ icon: Shield, label: 'IP65' }, { icon: Zap, label: 'Chemical resistant' }, { icon: Ruler, label: '−35 °C to +65 °C' }],
+  industrial: [{ icon: Shield, label: 'IP65' }, { icon: Zap, label: 'Dual locking' }, { icon: Ruler, label: 'Galv. mounting plate' }],
 };
 
 export function CabinetCatalog() {
@@ -18,9 +18,10 @@ export function CabinetCatalog() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <div className="text-center mb-14">
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Cabinet Models</h2>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">ARLI IP65 Enclosures</h2>
           <p className="mt-3 text-slate-500 max-w-xl mx-auto">
-            Browse our range of industrial enclosures. All models are fully customizable through our online configurator.
+            Industrial-grade ABS plastic enclosures with transparent door, galvanized mounting plate, and IP65 protection.
+            Suitable for indoor and outdoor use in energy, automation, solar, HVAC and more.
           </p>
         </div>
 

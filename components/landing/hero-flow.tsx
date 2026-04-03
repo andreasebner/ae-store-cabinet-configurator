@@ -12,7 +12,7 @@ const STEPS = [
     icon: Box,
     num: '01',
     title: 'Select Cabinet',
-    desc: 'Choose from our range of industrial enclosures — from compact wall-mount to full-size industrial.',
+    desc: 'Choose from our ARLI IP65 ABS enclosures — from compact wall-mount to full-size industrial cabinets with transparent door.',
     color: 'text-brand-600',
     bg: 'bg-brand-50',
   },
@@ -69,7 +69,7 @@ export function HeroFlow() {
             <span className="block text-brand-600">In Three Simple Steps</span>
           </h1>
           <p className="mt-5 text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
-            Select a model, configure cutouts with our live 3D editor, and order — all from your browser.
+            Select an ARLI IP65 enclosure, configure cutouts with our live 3D editor, and order — all from your browser.
             No CAD software needed.
           </p>
         </motion.div>

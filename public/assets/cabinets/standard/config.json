@@ -1,0 +1,46 @@
+{
+  "name": "AE 1076 — Standard",
+  "dimensions": { "w": 760, "h": 500, "d": 300 },
+  "modelUrl": "/assets/cabinets/standard/model.glb",
+  "modelScale": 0.002,
+  "modelNotes": "Source: 12x16_Enclosure.STEP (approximate fit)",
+  "outlineConfig": {
+    "cornerRadius": 10,
+    "margin": 12,
+    "crossBarWidth": 15,
+    "hasCrossH": true,
+    "hasCrossV": true
+  },
+  "sides": {
+    "front": {
+      "origin3d": { "x": 0, "y": 0, "z": 0.15 },
+      "normal": { "x": 0, "y": 0, "z": 1 },
+      "panelDxf": "/assets/cabinets/standard/panel-front.dxf"
+    },
+    "back": {
+      "origin3d": { "x": 0, "y": 0, "z": -0.15 },
+      "normal": { "x": 0, "y": 0, "z": -1 },
+      "panelDxf": "/assets/cabinets/standard/panel-back.dxf"
+    },
+    "left": {
+      "origin3d": { "x": -0.38, "y": 0, "z": 0 },
+      "normal": { "x": -1, "y": 0, "z": 0 },
+      "panelDxf": "/assets/cabinets/standard/panel-left.dxf"
+    },
+    "right": {
+      "origin3d": { "x": 0.38, "y": 0, "z": 0 },
+      "normal": { "x": 1, "y": 0, "z": 0 },
+      "panelDxf": "/assets/cabinets/standard/panel-right.dxf"
+    },
+    "top": {
+      "origin3d": { "x": 0, "y": 0.25, "z": 0 },
+      "normal": { "x": 0, "y": 1, "z": 0 },
+      "panelDxf": "/assets/cabinets/standard/panel-top.dxf"
+    },
+    "bottom": {
+      "origin3d": { "x": 0, "y": -0.25, "z": 0 },
+      "normal": { "x": 0, "y": -1, "z": 0 },
+      "panelDxf": "/assets/cabinets/standard/panel-bottom.dxf"
+    }
+  }
+}

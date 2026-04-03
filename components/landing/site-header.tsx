@@ -39,9 +39,9 @@ export function SiteHeader() {
             <Link href="/configure" className="text-sm text-slate-600 hover:text-slate-900 transition">
               Configurator
             </Link>
-            <a href="#" className="text-sm text-slate-600 hover:text-slate-900 transition">
+            <Link href="/docs" className="text-sm text-slate-600 hover:text-slate-900 transition">
               Documentation
-            </a>
+            </Link>
             <a href="#" className="text-sm text-slate-600 hover:text-slate-900 transition">
               Support
             </a>
@@ -92,7 +92,7 @@ export function SiteHeader() {
             <Link href="/#catalog" className="block px-3 py-2 text-sm text-slate-600 rounded hover:bg-slate-50">Cabinets</Link>
             <Link href="/configure" className="block px-3 py-2 text-sm text-slate-600 rounded hover:bg-slate-50">Configurator</Link>
             <Link href="/account/orders" className="block px-3 py-2 text-sm text-slate-600 rounded hover:bg-slate-50">My Orders</Link>
-            <a href="#" className="block px-3 py-2 text-sm text-slate-600 rounded hover:bg-slate-50">Documentation</a>
+            <Link href="/docs" className="block px-3 py-2 text-sm text-slate-600 rounded hover:bg-slate-50">Documentation</Link>
           </div>
         )}
       </div>

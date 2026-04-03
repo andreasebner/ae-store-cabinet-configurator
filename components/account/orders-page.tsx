@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { ordersApi } from '@/lib/api';
 import { CABINETS } from '@/lib/constants';
 import type { Order, OrderStatus } from '@/lib/types';
-import { Package, ArrowLeft, LogOut, CheckCircle2 } from 'lucide-react';
+import { Package, CheckCircle2 } from 'lucide-react';
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -19,68 +19,40 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 };
 
 export default function OrdersPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const justPlaced = searchParams.get('placed') === '1';
 
-  const { customer, hydrate, logout } = useAuthStore();
+  const { customer } = useAuthStore();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    hydrate();
-    setMounted(true);
-  }, [hydrate]);
-
-  useEffect(() => {
-    if (mounted && !customer) {
-      router.replace('/account/login?redirect=/account/orders');
-      return;
-    }
     if (customer) {
       setOrders(ordersApi.getByCustomer(customer.id).reverse());
     }
-  }, [customer, mounted, router]);
+  }, [customer]);
 
-  if (!mounted || !customer) return null;
+  if (!customer) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        {/* header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="text-slate-400 hover:text-slate-700 transition">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">My Orders</h1>
-              <p className="text-sm text-slate-500">
-                Signed in as <span className="font-medium text-slate-700">{customer.email}</span>
-              </p>
-            </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">My Orders</h1>
+        <p className="text-sm text-slate-500 mt-1">View your order history and track deliveries.</p>
+      </div>
+
+      {/* success banner */}
+      {justPlaced && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-emerald-800">Order placed successfully!</p>
+            <p className="text-xs text-emerald-600 mt-0.5">You will receive a confirmation email shortly.</p>
           </div>
-          <button
-            onClick={() => { logout(); router.push('/'); }}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition"
-          >
-            <LogOut className="w-4 h-4" /> Log out
-          </button>
         </div>
+      )}
 
-        {/* success banner */}
-        {justPlaced && (
-          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-emerald-800">Order placed successfully!</p>
-              <p className="text-xs text-emerald-600 mt-0.5">You will receive a confirmation email shortly.</p>
-            </div>
-          </div>
-        )}
-
-        {/* orders list */}
-        {orders.length === 0 ? (
+      {/* orders list */}
+      {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
             <Package className="w-14 h-14" />
             <p className="text-sm">No orders yet</p>
@@ -132,7 +104,6 @@ export default function OrdersPage() {
             ))}
           </div>
         )}
-      </div>
     </div>
   );
 }

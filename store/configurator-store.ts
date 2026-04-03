@@ -3,7 +3,7 @@ import type { CabinetKey, Side, ToolType, ElementType, PanelElement, SideElement
 import { SIDES, ELEMENT_DEFAULTS, MAX_UNDO, snap, calcPrice, getAlignSnapPoints, COMPONENT_MAP } from '@/lib/constants';
 
 function emptySideElements(): SideElements {
-  return Object.fromEntries(SIDES.map(s => [s, []])) as SideElements;
+  return Object.fromEntries(SIDES.map(s => [s, []])) as unknown as SideElements;
 }
 
 type SideAlignments = Record<Side, AlignmentElement[]>;
@@ -17,11 +17,11 @@ interface Snapshot {
 }
 
 function emptyAlignments(): SideAlignments {
-  return Object.fromEntries(SIDES.map(s => [s, []])) as SideAlignments;
+  return Object.fromEntries(SIDES.map(s => [s, []])) as unknown as SideAlignments;
 }
 
 function emptyConstraints(): SideConstraints {
-  return Object.fromEntries(SIDES.map(s => [s, []])) as SideConstraints;
+  return Object.fromEntries(SIDES.map(s => [s, []])) as unknown as SideConstraints;
 }
 
 function cloneSnapshot(se: SideElements, al: SideAlignments, sn: SnapMap, co: SideConstraints): Snapshot {
@@ -101,7 +101,7 @@ interface ConfiguratorStore {
 
 export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   currentCabinet: 'compact',
-  currentSide: 'front',
+  currentSide: 'right',
   activeTool: 'hole',
   selectedElId: null,
   selectedElIds: new Set<number>(),

@@ -1,3 +1,5 @@
+import type { PanelOutlineConfig } from './panel-outline';
+
 export type Side = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
 export type ElementType = 'hole' | 'rect' | 'custom' | 'text';
 export type AnchorPoint = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
@@ -24,6 +26,24 @@ export interface CabinetSpec {
   d: number;
   basePrice: number;
   description: string;
+  /** URL to GLB 3D model (relative to public/) — undefined = procedural box fallback */
+  modelUrl?: string;
+  /** Body center offset from full model bbox center [x,y,z] in mm */
+  bodyCenter?: [number, number, number];
+  /** Default editable face */
+  defaultFace?: Side;
+  /** Sides that cannot be edited */
+  disabledSides?: Side[];
+  /** Panel outline configuration — undefined = DEFAULT_OUTLINE_CONFIG */
+  outlineConfig?: Partial<PanelOutlineConfig>;
+  /** Per-side outline overrides */
+  sideOutlineOverrides?: Partial<Record<Side, Partial<PanelOutlineConfig>>>;
+  /** Mesh node names to render with transparent door material */
+  doorMeshNames?: string[];
+  /** Euler rotation [x,y,z] in radians to orient the loaded model (applied before centering) */
+  modelRotation?: [number, number, number];
+  /** Name of the mesh node whose bbox defines the editable body (centering + face config) */
+  bodyMeshName?: string;
 }
 
 export interface PanelElement {
@@ -105,6 +125,9 @@ export interface Customer {
   email: string;
   firstName: string;
   lastName: string;
+  company?: string;
+  phone?: string;
+  address?: Address;
   createdAt: string;
 }
 

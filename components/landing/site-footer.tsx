@@ -44,8 +44,8 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm">
               <li><a href="#" className="hover:text-white transition">About DeFctory</a></li>
               <li><a href="#" className="hover:text-white transition">Contact</a></li>
-              <li><a href="#" className="hover:text-white transition">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-white transition">Terms of Service</a></li>
+              <li><Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link></li>
+              <li><Link href="/imprint" className="hover:text-white transition">Imprint</Link></li>
             </ul>
           </div>
         </div>
@@ -53,9 +53,9 @@ export function SiteFooter() {
         <div className="mt-10 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-slate-500">&copy; {new Date().getFullYear()} DeFctory GmbH. All rights reserved.</p>
           <div className="flex items-center gap-4 text-xs text-slate-500">
-            <a href="#" className="hover:text-white transition">Imprint</a>
-            <a href="#" className="hover:text-white transition">Privacy</a>
-            <a href="#" className="hover:text-white transition">Cookies</a>
+            <Link href="/imprint" className="hover:text-white transition">Imprint</Link>
+            <Link href="/privacy" className="hover:text-white transition">Privacy</Link>
+            <Link href="/cookies" className="hover:text-white transition">Cookies</Link>
           </div>
         </div>
       </div>

@@ -1,0 +1,21 @@
+{
+  "name": "AE 1180 — Industrial",
+  "dimensions": { "w": 1200, "h": 800, "d": 500 },
+  "modelUrl": null,
+  "modelNotes": "No GLB model available — uses procedural box fallback",
+  "outlineConfig": {
+    "cornerRadius": 10,
+    "margin": 12,
+    "crossBarWidth": 15,
+    "hasCrossH": true,
+    "hasCrossV": true
+  },
+  "sides": {
+    "front": { "panelDxf": "/assets/cabinets/industrial/panel-front.dxf" },
+    "back":  { "panelDxf": "/assets/cabinets/industrial/panel-back.dxf" },
+    "left":  { "panelDxf": "/assets/cabinets/industrial/panel-left.dxf" },
+    "right": { "panelDxf": "/assets/cabinets/industrial/panel-right.dxf" },
+    "top":   { "panelDxf": "/assets/cabinets/industrial/panel-top.dxf" },
+    "bottom":{ "panelDxf": "/assets/cabinets/industrial/panel-bottom.dxf" }
+  }
+}

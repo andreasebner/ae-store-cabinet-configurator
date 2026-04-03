@@ -1,0 +1,21 @@
+{
+  "name": "AE 1114 — Large",
+  "dimensions": { "w": 1000, "h": 600, "d": 400 },
+  "modelUrl": null,
+  "modelNotes": "No GLB model available — uses procedural box fallback",
+  "outlineConfig": {
+    "cornerRadius": 10,
+    "margin": 12,
+    "crossBarWidth": 15,
+    "hasCrossH": true,
+    "hasCrossV": true
+  },
+  "sides": {
+    "front": { "panelDxf": "/assets/cabinets/large/panel-front.dxf" },
+    "back":  { "panelDxf": "/assets/cabinets/large/panel-back.dxf" },
+    "left":  { "panelDxf": "/assets/cabinets/large/panel-left.dxf" },
+    "right": { "panelDxf": "/assets/cabinets/large/panel-right.dxf" },
+    "top":   { "panelDxf": "/assets/cabinets/large/panel-top.dxf" },
+    "bottom":{ "panelDxf": "/assets/cabinets/large/panel-bottom.dxf" }
+  }
+}
