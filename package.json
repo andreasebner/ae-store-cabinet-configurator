@@ -19,6 +19,8 @@
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.170.0",
+    "three-bvh-csg": "^0.0.17",
+    "three-mesh-bvh": "^0.9.9",
     "zustand": "^4.5.5"
   },
   "devDependencies": {

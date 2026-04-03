@@ -97,6 +97,12 @@ interface ConfiguratorStore {
   clearToast: () => void;
   sideHasEdits: (side: Side) => boolean;
   currentElements: () => PanelElement[];
+
+  // Debug mode
+  debugMode: boolean;
+  debugPoint: [number, number, number];
+  toggleDebugMode: () => void;
+  setDebugPoint: (pos: [number, number, number]) => void;
 }
 
 export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
@@ -120,6 +126,8 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   toastMessage: null,
   toastIcon: '✓',
   price: 320,
+  debugMode: false,
+  debugPoint: [0, 0, 0] as [number, number, number],
 
   setCabinet: (key) => set(state => ({
     currentCabinet: key,
@@ -708,4 +716,8 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     undoStack: [], redoStack: [],
     nextId: 1, activeTool: 'hole' as ToolType,
   }),
+
+  // Debug mode
+  toggleDebugMode: () => set(state => ({ debugMode: !state.debugMode })),
+  setDebugPoint: (pos) => set({ debugPoint: pos }),
 }));

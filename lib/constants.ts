@@ -11,7 +11,7 @@ export const CABINETS: Record<CabinetKey, CabinetSpec> = {
     modelUrl: '/assets/cabinets/default/model.glb',
     bodyCenter: [0, 0, 0],
     defaultFace: 'right',
-    disabledSides: ['back'],
+    disabledSides: ['back', 'front'],
     doorMeshNames: ['mesh_3'],
     modelRotation: [-Math.PI / 2, 0, 0],
     bodyMeshName: 'Panel Body',
