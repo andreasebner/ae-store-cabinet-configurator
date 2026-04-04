@@ -101,8 +101,10 @@ interface ConfiguratorStore {
   // Debug mode
   debugMode: boolean;
   debugPoint: [number, number, number];
+  debugOverlayOffset: [number, number, number];
   toggleDebugMode: () => void;
   setDebugPoint: (pos: [number, number, number]) => void;
+  setDebugOverlayOffset: (offset: [number, number, number]) => void;
 }
 
 export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
@@ -128,6 +130,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   price: 320,
   debugMode: false,
   debugPoint: [0, 0, 0] as [number, number, number],
+  debugOverlayOffset: [0, 0, 0] as [number, number, number],
 
   setCabinet: (key) => set(state => ({
     currentCabinet: key,
@@ -720,4 +723,5 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   // Debug mode
   toggleDebugMode: () => set(state => ({ debugMode: !state.debugMode })),
   setDebugPoint: (pos) => set({ debugPoint: pos }),
+  setDebugOverlayOffset: (offset) => set({ debugOverlayOffset: offset }),
 }));

@@ -335,12 +335,16 @@ export default function Cabinet3DScene() {
   const debugHelpersRef = useRef<any>(null); // Group containing debug objects
   const debugPointRef   = useRef<any>(null); // draggable sphere
   const dragControlsRef = useRef<any>(null);
+  const transformControlsRef = useRef<any>(null); // TransformControls for overlay
+  const overlayDefaultPosRef = useRef<[number, number, number]>([0, 0, 0]); // default overlay pos
 
   const { currentCabinet, currentSide, sideElements } = useConfiguratorStore();
   const debugMode = useConfiguratorStore(s => s.debugMode);
   const debugPoint = useConfiguratorStore(s => s.debugPoint);
   const setDebugPoint = useConfiguratorStore(s => s.setDebugPoint);
   const toggleDebugMode = useConfiguratorStore(s => s.toggleDebugMode);
+  const debugOverlayOffset = useConfiguratorStore(s => s.debugOverlayOffset);
+  const setDebugOverlayOffset = useConfiguratorStore(s => s.setDebugOverlayOffset);
   const cab = CABINETS[currentCabinet];
 
   // Local state for debug coordinate display
@@ -427,8 +431,25 @@ export default function Cabinet3DScene() {
       const scale = cabToSceneRef.current;
 
       const overlay = buildPanelOverlay(THREE, fc, pw, ph, outlineCfg, elements, scale);
+
+      // Store default overlay position for offset tracking
+      overlayDefaultPosRef.current = [overlay.position.x, overlay.position.y, overlay.position.z];
+
+      // Apply debug overlay offset
+      const offset = useConfiguratorStore.getState().debugOverlayOffset;
+      if (offset[0] !== 0 || offset[1] !== 0 || offset[2] !== 0) {
+        overlay.position.x += offset[0];
+        overlay.position.y += offset[1];
+        overlay.position.z += offset[2];
+      }
+
       scene.add(overlay);
       overlayGroupRef.current = overlay;
+
+      // Re-attach TransformControls to new overlay if active
+      if (transformControlsRef.current) {
+        transformControlsRef.current.attach(overlay);
+      }
     };
 
     if (immediate) {
@@ -766,6 +787,11 @@ export default function Cabinet3DScene() {
     applyCsgCutouts(panelFc, true);
   }, [currentSide, getModelSpec, getPanelFaceConfig, positionCamera, updatePanelOverlay, applyCsgCutouts]);
 
+  /* ── Reset overlay offset when side changes ── */
+  useEffect(() => {
+    setDebugOverlayOffset([0, 0, 0]);
+  }, [currentSide, setDebugOverlayOffset]);
+
   /* ── Re-apply CSG + overlay when 2D elements change ── */
   useEffect(() => {
     const T = threeRef.current;
@@ -847,6 +873,11 @@ export default function Cabinet3DScene() {
     if (dragControlsRef.current) {
       dragControlsRef.current.dispose();
       dragControlsRef.current = null;
+    }
+    if (transformControlsRef.current) {
+      scene.remove(transformControlsRef.current);
+      transformControlsRef.current.dispose();
+      transformControlsRef.current = null;
     }
 
     if (!debugMode) return;
@@ -1074,9 +1105,10 @@ export default function Cabinet3DScene() {
     scene.add(group);
     debugHelpersRef.current = group;
 
-    // -- Drag controls for the debug point
+    // -- Drag controls for the debug point + TransformControls for overlay
     (async () => {
       const { DragControls } = await import('three/addons/controls/DragControls.js');
+      const { TransformControls } = await import('three/addons/controls/TransformControls.js');
       if (disposedRef.current || !debugMode) return;
 
       const dc = new DragControls([dpMesh], cam, canvas);
@@ -1096,6 +1128,35 @@ export default function Cabinet3DScene() {
         if (controlsRef.current) controlsRef.current.enabled = true;
       });
       dragControlsRef.current = dc;
+
+      // -- TransformControls: attach to overlay for drag-to-align
+      const overlayObj = overlayGroupRef.current;
+      if (overlayObj) {
+        const tc = new TransformControls(cam, canvas);
+        tc.setMode('translate');
+        tc.setSize(0.75);
+        tc.attach(overlayObj);
+        scene.add(tc.getHelper());
+
+        tc.addEventListener('dragging-changed', (event: any) => {
+          if (controlsRef.current) controlsRef.current.enabled = !event.value;
+          // Also disable DragControls while TransformControls is active
+          if (dc) dc.enabled = !event.value;
+        });
+
+        tc.addEventListener('objectChange', () => {
+          const p = overlayObj.position;
+          const def = overlayDefaultPosRef.current;
+          const off: [number, number, number] = [
+            Math.round((p.x - def[0]) * 100) / 100,
+            Math.round((p.y - def[1]) * 100) / 100,
+            Math.round((p.z - def[2]) * 100) / 100,
+          ];
+          setDebugOverlayOffset(off);
+        });
+
+        transformControlsRef.current = tc;
+      }
     })();
 
     return () => {
@@ -1108,8 +1169,13 @@ export default function Cabinet3DScene() {
         dragControlsRef.current.dispose();
         dragControlsRef.current = null;
       }
+      if (transformControlsRef.current) {
+        scene.remove(transformControlsRef.current.getHelper());
+        transformControlsRef.current.dispose();
+        transformControlsRef.current = null;
+      }
     };
-  }, [debugMode, currentSide, currentCabinet, sideElements, getModelSpec, setDebugPoint]);
+  }, [debugMode, currentSide, currentCabinet, sideElements, getModelSpec, setDebugPoint, setDebugOverlayOffset]);
 
   return (
     <div className="relative w-full h-full min-h-[200px]">
@@ -1145,7 +1211,7 @@ export default function Cabinet3DScene() {
       </div>
       {/* Debug coordinate readout */}
       {debugMode && (
-        <div className="absolute bottom-10 right-2 z-10 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg px-3 py-2 text-[11px] font-mono space-y-1 min-w-[220px]">
+        <div className="absolute bottom-10 right-2 z-10 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg px-3 py-2 text-[11px] font-mono space-y-1 min-w-[240px] max-h-[80vh] overflow-y-auto">
           <div className="text-amber-300 font-bold text-xs mb-1">Debug Point</div>
           <div className="flex justify-between">
             <span className="text-red-400">X:</span>
@@ -1176,6 +1242,61 @@ export default function Cabinet3DScene() {
               );
             })()}
           </div>
+          {/* Overlay Offset section */}
+          <div className="border-t border-white/20 pt-1 mt-1">
+            <div className="text-fuchsia-300 font-bold text-xs mb-0.5">Overlay Offset</div>
+            <div className="text-gray-300 text-[10px] mb-1">Drag gizmo arrows to move panel overlay</div>
+            <div className="flex justify-between">
+              <span className="text-red-400">dX:</span>
+              <span>{debugOverlayOffset[0].toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-400">dY:</span>
+              <span>{debugOverlayOffset[1].toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-blue-400">dZ:</span>
+              <span>{debugOverlayOffset[2].toFixed(2)}</span>
+            </div>
+            {(() => {
+              const s = cabToSceneRef.current || 1;
+              const bcX = Math.round((debugOverlayOffset[0] / s) * 10) / 10;
+              const bcY = Math.round((debugOverlayOffset[1] / s) * 10) / 10;
+              const bcZ = Math.round((debugOverlayOffset[2] / s) * 10) / 10;
+              return (
+                <>
+                  <div className="border-t border-white/10 pt-1 mt-1">
+                    <div className="text-violet-300 font-bold text-[10px] mb-0.5">Suggested bodyCenter</div>
+                    <div className="text-white bg-white/10 rounded px-1.5 py-0.5 text-[10px]">
+                      [{bcX}, {bcY}, {bcZ}]
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const text = `bodyCenter: [${bcX}, ${bcY}, ${bcZ}],`;
+                      navigator.clipboard.writeText(text);
+                    }}
+                    className="mt-1 w-full text-center text-[10px] bg-violet-600/40 hover:bg-violet-600/60 rounded px-2 py-0.5 transition"
+                  >
+                    Copy bodyCenter
+                  </button>
+                </>
+              );
+            })()}
+            <button
+              onClick={() => {
+                setDebugOverlayOffset([0, 0, 0]);
+                // Re-position overlay to default
+                if (overlayGroupRef.current) {
+                  const def = overlayDefaultPosRef.current;
+                  overlayGroupRef.current.position.set(def[0], def[1], def[2]);
+                }
+              }}
+              className="mt-1 w-full text-center text-[10px] bg-white/10 hover:bg-white/20 rounded px-2 py-0.5 transition"
+            >
+              Reset offset
+            </button>
+          </div>
           <button
             onClick={() => {
               const text = `[${debugCoords[0].toFixed(1)}, ${debugCoords[1].toFixed(1)}, ${debugCoords[2].toFixed(1)}]`;
@@ -1183,7 +1304,7 @@ export default function Cabinet3DScene() {
             }}
             className="mt-1 w-full text-center text-[10px] bg-white/10 hover:bg-white/20 rounded px-2 py-0.5 transition"
           >
-            Copy coordinates
+            Copy debug point
           </button>
         </div>
       )}
